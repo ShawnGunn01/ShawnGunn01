@@ -1,0 +1,87 @@
+[
+  {
+    "id": "SF-0001",
+    "name": "Harborview Foundation",
+    "contactName": "Renee Ibarra",
+    "contactEmail": "renee@harborviewfdn.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-10-15",
+    "purchaseCount": 3,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2026-11-16",
+    "lastTouchDate": "2025-10-15"
+  },
+  {
+    "id": "SF-0002",
+    "name": "Northgate Youth Alliance",
+    "contactName": "Marcus Bell",
+    "contactEmail": "marcus@northgateyouth.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-09-10",
+    "purchaseCount": 1,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2026-09-08",
+    "lastTouchDate": "2025-09-10"
+  },
+  {
+    "id": "SF-0003",
+    "name": "Bright Path Community Center",
+    "contactName": "Dana Feldman",
+    "contactEmail": "dana@brightpathcc.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-07-01",
+    "purchaseCount": 2,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2026-09-05",
+    "lastTouchDate": "2025-07-01",
+    "proposal": { "sentDate": "2026-08-20", "eventDate": "2026-09-08", "outcome": null }
+  },
+  {
+    "id": "SF-0004",
+    "name": "Cedar Ridge Arts Collective",
+    "contactName": "Priya Shah",
+    "contactEmail": "priya@cedarridgearts.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2026-06-01",
+    "purchaseCount": 4,
+    "eventBookedDate": "2026-11-01",
+    "eventAnniversaryDate": "2027-06-01",
+    "lastTouchDate": "2026-08-25"
+  },
+  {
+    "id": "SF-0005",
+    "name": "Riverside Literacy Project",
+    "contactName": "Tomas Vidal",
+    "contactEmail": "tomas@riversideliteracy.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2024-05-10",
+    "purchaseCount": 1,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2025-05-10",
+    "lastTouchDate": "2024-11-01"
+  },
+  {
+    "id": "SF-0006",
+    "name": "Sunrise Family Services",
+    "contactName": "Elena Cruz",
+    "contactEmail": "elena@sunrisefamily.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-10-01",
+    "purchaseCount": 2,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2026-10-10",
+    "lastTouchDate": "2025-10-01"
+  },
+  {
+    "id": "SF-0007",
+    "name": "Maple & Vine Community Kitchen",
+    "contactName": "Owen Park",
+    "contactEmail": "owen@mapleandvine.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-09-20",
+    "purchaseCount": 1,
+    "eventBookedDate": "",
+    "eventAnniversaryDate": "2026-09-19",
+    "lastTouchDate": "2025-09-20"
+  }
+]

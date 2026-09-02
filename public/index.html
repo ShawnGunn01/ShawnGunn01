@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Impact4Good — Win-Back &amp; Proposal Follow-Up</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Impact4Good <span>Win-Back &amp; Proposal Follow-Up</span></h1>
+    <nav>
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="queue">Review Queue</button>
+      <button class="tab-btn" data-tab="accounts">Accounts</button>
+      <button class="tab-btn" data-tab="owners">Owners</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-dashboard" class="tab-panel active">
+      <div class="panel-toolbar">
+        <button id="btn-run-engine">Run Cohort Engine</button>
+        <button class="secondary" id="btn-seed">Load Sample Accounts</button>
+        <span class="hint" id="engine-result"></span>
+      </div>
+      <div class="stat-grid" id="stat-grid"></div>
+
+      <div class="two-col">
+        <div class="card">
+          <h3>Cohort Funnel — Win-Back</h3>
+          <div id="cohort-funnel"></div>
+        </div>
+        <div class="card">
+          <h3>Proposal Outcomes</h3>
+          <div id="proposal-outcomes"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Recent Activity</h3>
+        <div id="activity-feed"></div>
+      </div>
+    </section>
+
+    <section id="tab-queue" class="tab-panel">
+      <div class="panel-toolbar">
+        <label>Owner
+          <select id="queue-owner-filter">
+            <option value="">All</option>
+          </select>
+        </label>
+        <span class="hint">AI drafts every touch below. Nothing sends automatically — edit, then send from your own inbox and mark it Sent.</span>
+      </div>
+      <div id="queue-list" class="card-list"></div>
+    </section>
+
+    <section id="tab-accounts" class="tab-panel">
+      <div class="panel-toolbar">
+        <span class="hint">Accounts sync in from Salesforce via the Make.com webhook (POST /api/sync/accounts). Salesforce fields here are read-only mirrors.</span>
+      </div>
+      <table class="data-table" id="accounts-table">
+        <thead>
+          <tr>
+            <th>Account</th><th>Owner</th><th>Funnel</th><th>Stage</th>
+            <th>Last Purchase</th><th>Last Touch</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="tab-owners" class="tab-panel">
+      <div class="card-list" id="owners-list"></div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

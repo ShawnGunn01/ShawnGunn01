@@ -1,0 +1,5 @@
+node_modules/
+data/donors.json
+data/campaigns.json
+npm-debug.log*
+.DS_Store

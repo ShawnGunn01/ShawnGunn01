@@ -1,0 +1,14 @@
+{
+  "name": "impact4good-winback",
+  "version": "1.0.0",
+  "description": "Donor winback solution for Impact4Good — detect lapsed donors, run winback campaigns, and track recovery.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
