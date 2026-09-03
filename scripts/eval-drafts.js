@@ -94,7 +94,7 @@ function runEval() {
   const results = CASES.map((c) => {
     const owner = store.listOwners().find((o) => o.id === c.account.ownerId) || null;
     const rawDraft = draftFor(c.funnel, c.stage, c.account);
-    const finalDraft = interpolateDraft(rawDraft, owner);
+    const finalDraft = interpolateDraft(rawDraft, owner, c.account.id);
     const gate = validateDraft(finalDraft, c.account, owner, allAccounts);
 
     const toneErrors = validatePressureTone(finalDraft);

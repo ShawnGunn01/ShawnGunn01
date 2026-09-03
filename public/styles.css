@@ -193,6 +193,7 @@ button.danger { background: var(--bad); }
 .queue-card textarea { width: 100%; font-family: inherit; font-size: 14px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
 .queue-card input.subject { width: 100%; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; }
 .queue-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.queue-card .send-error { color: var(--bad); margin-top: 6px; }
 
 .sync-banner {
   background: #fef3c7;

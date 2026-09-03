@@ -13,11 +13,30 @@ create extension if not exists pgcrypto; -- gen_random_uuid(), if surrogate ids 
 -- ---------- owners ----------
 
 create table owners (
-  id            text primary key,           -- 'audrey' | 'nick'
-  name          text not null,
-  email         text not null default '',
-  calendly_link text not null default '',
-  backup_for    text references owners(id)
+  id                    text primary key,           -- 'audrey' | 'nick'
+  name                  text not null,
+  email                 text not null default '',
+  calendly_link         text not null default '',
+  backup_for            text references owners(id),
+  -- Per-owner Gmail OAuth (Prompt 8 Item 3) — never a shared account.
+  -- The refresh token is the only long-lived credential; access tokens are
+  -- fetched on demand and never stored.
+  gmail_refresh_token   text,
+  gmail_connected_email text,
+  gmail_connected_at    timestamptz
+);
+
+-- ---------- users ----------
+-- Dashboard + queue access control (Prompt 7/8). NOT real authentication —
+-- a pragmatic role gate appropriate to a 4-person internal pilot tool's
+-- threat model. See src/access.js and the runbook for why, and what
+-- replaces this (e.g. Supabase Auth) before this leaves pilot status.
+-- Defined here, ahead of touches, because touches.sent_by references it.
+
+create table users (
+  id    text primary key,        -- matches the X-User-Id header value
+  name  text not null,
+  role  text not null check (role in ('admin','viewer'))
 );
 
 -- ---------- accounts ----------
@@ -70,21 +89,29 @@ create table rebookings (
 -- ---------- touches (AI-drafted outreach, owner reviews & sends) ----------
 
 create table touches (
-  id              uuid primary key default gen_random_uuid(),
-  account_id      text not null references accounts(id),
-  funnel          text not null check (funnel in ('win_back','proposal_follow_up','nurture')),
-  stage           text not null,
-  kind            text not null default 'email' check (kind in ('email','call_flag')),
-  subject         text,
-  body            text not null,
-  owner_id        text not null references owners(id),
-  draft_source    text not null default 'template' check (draft_source in ('template','ai','template_fallback')),
-  status          text not null default 'pending_review'
-                    check (status in ('pending_review','sent','replied','out_of_office','skipped')),
-  created_at      timestamptz not null default now(),
-  sent_at         timestamptz,
-  replied_at      timestamptz,
-  reply_marked_by text references owners(id)
+  id                 uuid primary key default gen_random_uuid(),
+  account_id         text not null references accounts(id),
+  funnel             text not null check (funnel in ('win_back','proposal_follow_up','nurture')),
+  stage              text not null,
+  kind               text not null default 'email' check (kind in ('email','call_flag')),
+  subject            text,
+  body               text not null,
+  -- Immutable snapshot of what the drafting engine generated — never
+  -- updated by later edits — so "edited before send" (Prompt 8 Item 6) is
+  -- a real comparison against current subject/body, not a guess.
+  original_subject   text,
+  original_body      text,
+  owner_id           text not null references owners(id),
+  draft_source       text not null default 'template' check (draft_source in ('template','ai','template_fallback')),
+  status             text not null default 'pending_review'
+                       check (status in ('pending_review','sent','replied','out_of_office','skipped')),
+  created_at         timestamptz not null default now(),
+  sent_at            timestamptz,
+  sent_by            text references users(id), -- who clicked Approve & Send (may differ from owner_id — backup coverage; can be an admin, so this references users, not owners)
+  was_edited_at_send boolean,
+  gmail_message_id   text,
+  replied_at         timestamptz,
+  reply_marked_by    text references owners(id)
 );
 
 create index touches_account_funnel_stage_idx on touches(account_id, funnel, stage);
@@ -179,22 +206,30 @@ create table draft_generations (
   errors        jsonb not null default '[]'
 );
 
+-- ---------- sends (full send audit — Prompt 8 Item 6) ----------
+-- One row per actual email send: who clicked Approve & Send, when, and
+-- whether the draft was edited first. Distinct from touches (current
+-- state of one drafted item) and activity (human-readable feed) — this is
+-- the compliance-relevant audit trail purpose-built for the dashboard.
+
+create table sends (
+  id                uuid primary key default gen_random_uuid(),
+  touch_id          uuid not null references touches(id),
+  account_id        text not null references accounts(id),
+  owner_id          text not null references owners(id),  -- whose Gmail it went out through
+  sent_by           text not null references users(id),   -- who clicked Approve & Send
+  was_edited        boolean not null default false,
+  gmail_message_id  text,
+  at                timestamptz not null default now()
+);
+
+create index sends_account_idx on sends(account_id);
+create index sends_at_idx on sends(at desc);
+
 create index sync_runs_at_idx on sync_runs(at desc);
 create index engine_runs_at_idx on engine_runs(at desc);
 create index draft_generations_account_id_idx on draft_generations(account_id);
 create index draft_generations_at_idx on draft_generations(at desc);
-
--- ---------- users ----------
--- Dashboard access control (Prompt 7). NOT real authentication — a
--- pragmatic role gate appropriate to a 4-person internal pilot tool's
--- threat model. See src/access.js and the runbook for why, and what
--- replaces this (e.g. Supabase Auth) before this leaves pilot status.
-
-create table users (
-  id    text primary key,        -- matches the X-User-Id header value
-  name  text not null,
-  role  text not null check (role in ('admin','viewer'))
-);
 
 -- ---------- seed owners ----------
 -- Inserted without backup_for first, then cross-linked, since it's a

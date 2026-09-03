@@ -1,4 +1,4 @@
-const state = { owners: [], users: [], currentUserId: null };
+const state = { owners: [], users: [], currentUserId: null, queueScope: { asOwner: null, backupReason: null } };
 
 // ---------- access control (see src/access.js — not real auth) ----------
 // A plain "who are you" selector, not a login. Persisted per-browser in
@@ -240,73 +240,189 @@ document.getElementById('btn-snapshot').addEventListener('click', async () => {
   document.getElementById('engine-result').textContent = 'Metrics snapshot recorded.';
 });
 
-// ---------- review queue ----------
+// ---------- review queue (per-owner; Prompt 8) ----------
+// Default: a viewer's queue is scoped to their OWN drafts server-side
+// (src/access.js resolveQueueScope) — this file just reflects that scope
+// in the UI and offers the one documented door into someone else's queue:
+// backup coverage, which requires a reason and is logged server-side.
+
+function queueUrl(base) {
+  const params = new URLSearchParams();
+  const user = currentUser();
+  if (user && user.role === 'admin') {
+    const adminFilter = document.getElementById('queue-owner-filter-admin')?.value;
+    if (adminFilter) params.set('ownerId', adminFilter);
+  } else if (state.queueScope.asOwner) {
+    params.set('asOwner', state.queueScope.asOwner);
+    params.set('backupReason', state.queueScope.backupReason || '');
+  }
+  const qs = params.toString();
+  return qs ? `${base}${base.includes('?') ? '&' : '?'}${qs}` : base;
+}
+
+async function renderQueueScopeBar() {
+  const user = currentUser();
+  const label = document.getElementById('queue-scope-label');
+  const adminOnlyEl = document.querySelector('#queue-scope-bar .admin-only');
+  const backupEl = document.getElementById('backup-access-control');
+
+  if (user && user.role === 'admin') {
+    adminOnlyEl.hidden = false;
+    backupEl.innerHTML = '';
+    const sel = document.getElementById('queue-owner-filter-admin');
+    if (sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">All</option>' + state.owners.map((o) => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+      sel.addEventListener('change', loadQueue);
+    }
+    label.textContent = 'Admin view — full visibility, no backup flag needed.';
+    return;
+  }
+
+  adminOnlyEl.hidden = true;
+
+  if (state.queueScope.asOwner) {
+    const target = state.owners.find((o) => o.id === state.queueScope.asOwner);
+    label.textContent = `Viewing ${target ? target.name : state.queueScope.asOwner}'s queue — backup coverage ("${state.queueScope.backupReason}")`;
+    backupEl.innerHTML = `<button class="secondary" id="btn-return-own-queue">Return to my queue</button>`;
+    document.getElementById('btn-return-own-queue').addEventListener('click', () => {
+      state.queueScope = { asOwner: null, backupReason: null };
+      loadQueue();
+    });
+    return;
+  }
+
+  label.textContent = 'Viewing your own queue.';
+  // Backup coverage only offered if the Owners tab has THIS user's own
+  // record naming who they cover (store.js DEFAULT_OWNERS backupFor —
+  // "[this owner] is backup for [backupFor]") — not self-declared.
+  const myOwnerRecord = state.owners.find((o) => o.id === user.id);
+  const covers = myOwnerRecord && myOwnerRecord.backupFor ? state.owners.find((o) => o.id === myOwnerRecord.backupFor) : null;
+  if (covers) {
+    backupEl.innerHTML = `<button class="secondary" id="btn-cover-queue">Cover ${escapeHtml(covers.name)}'s queue (backup)</button>`;
+    document.getElementById('btn-cover-queue').addEventListener('click', () => {
+      const reason = prompt(`Reason for viewing ${covers.name}'s queue (logged for audit):`, '');
+      if (!reason || !reason.trim()) return;
+      state.queueScope = { asOwner: covers.id, backupReason: reason.trim() };
+      loadQueue();
+    });
+  } else {
+    backupEl.innerHTML = '';
+  }
+}
+
+function queueCard(t, { pending }) {
+  const owner = state.owners.find((o) => o.id === t.ownerId);
+  const kindBadge = t.kind === 'call_flag' ? '<span class="badge call_flag">Call / Text — At Risk</span>' : '';
+  const editedBadge = t.wasEditedAtSend ? '<span class="badge sent">Edited before send</span>' : '';
+
+  const body = pending
+    ? t.kind === 'call_flag'
+      ? `<div class="card-meta">${escapeHtml(t.body)}</div>`
+      : `<input class="subject" data-field="subject" value="${escapeHtml(t.subject)}" />
+         <textarea rows="6" data-field="body">${escapeHtml(t.body)}</textarea>`
+    : `<div class="card-meta">${escapeHtml(t.subject || '')}</div>`;
+
+  const actions = pending
+    ? t.kind === 'call_flag'
+      ? `<div class="actions">
+          <button data-handled="${t.id}">Mark Handled (Called/Texted)</button>
+          <button class="secondary" data-status="skipped" data-id="${t.id}">Skip</button>
+        </div>`
+      : `<div class="actions">
+          <button class="secondary" data-save="${t.id}">Save Draft</button>
+          <button data-send="${t.id}">Approve &amp; Send</button>
+          <button class="secondary" data-status="skipped" data-id="${t.id}">Skip</button>
+        </div>
+        <div class="hint send-error" id="send-error-${t.id}"></div>`
+    : `<div class="actions">
+        <button data-status="replied" data-id="${t.id}">Mark Replied</button>
+        <button class="secondary" data-status="out_of_office" data-id="${t.id}" title="Auto-reply or OOO — not a real reply, excluded from the reply-rate metric">Out of Office</button>
+      </div>`;
+
+  return `<div class="card queue-card" data-touch="${t.id}">
+    <div class="card-row">
+      <div>
+        <h3>${escapeHtml(t.account ? t.account.name : t.accountId)}</h3>
+        <div class="card-meta">${labelize(t.funnel)} · ${labelize(t.stage)} · owner: ${escapeHtml(owner ? owner.name : t.ownerId)} ${kindBadge} ${editedBadge}</div>
+      </div>
+    </div>
+    ${body}
+    ${actions}
+  </div>`;
+}
 
 async function loadQueue() {
   if (state.owners.length === 0) {
     state.owners = await apiFetch('/api/owners').then((r) => r.json());
-    const sel = document.getElementById('queue-owner-filter');
-    sel.innerHTML = '<option value="">All</option>' + state.owners.map((o) => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
-    sel.addEventListener('change', loadQueue);
   }
+  await renderQueueScopeBar();
 
-  const ownerId = document.getElementById('queue-owner-filter').value;
-  const url = ownerId ? `/api/touches?status=pending_review&ownerId=${ownerId}` : '/api/touches?status=pending_review';
-  const touches = await apiFetch(url).then((r) => r.json());
+  const [pendingTouches, sentTouches] = await Promise.all([
+    apiFetch(queueUrl('/api/touches?status=pending_review')).then((r) => r.json()),
+    apiFetch(queueUrl('/api/touches?status=sent')).then((r) => r.json()),
+  ]);
+
   const list = document.getElementById('queue-list');
+  list.innerHTML = pendingTouches.length
+    ? pendingTouches.map((t) => queueCard(t, { pending: true })).join('')
+    : '<div class="card">Nothing waiting on review. Run the cohort engine from the Dashboard tab to draft due touches.</div>';
 
-  if (touches.length === 0) {
-    list.innerHTML = '<div class="card">Nothing waiting on review. Run the cohort engine from the Dashboard tab to draft due touches.</div>';
-    return;
-  }
-
-  list.innerHTML = touches
-    .map((t) => {
-      const owner = state.owners.find((o) => o.id === t.ownerId);
-      const kindBadge = t.kind === 'call_flag' ? '<span class="badge call_flag">Call / Text — At Risk</span>' : '';
-      return `<div class="card queue-card" data-touch="${t.id}">
-        <div class="card-row">
-          <div>
-            <h3>${escapeHtml(t.account ? t.account.name : t.accountId)}</h3>
-            <div class="card-meta">${labelize(t.funnel)} · ${labelize(t.stage)} · owner: ${escapeHtml(owner ? owner.name : t.ownerId)} ${kindBadge}</div>
-          </div>
-        </div>
-        ${
-          t.kind === 'call_flag'
-            ? `<div class="card-meta">${escapeHtml(t.body)}</div>`
-            : `<input class="subject" data-field="subject" value="${escapeHtml(t.subject)}" />
-               <textarea rows="6" data-field="body">${escapeHtml(t.body)}</textarea>`
-        }
-        <div class="actions">
-          <button data-save="${t.id}">Save Edits</button>
-          <button data-status="sent" data-id="${t.id}">Mark Sent</button>
-          <button class="secondary" data-status="replied" data-id="${t.id}">Mark Replied</button>
-          <button class="secondary" data-status="out_of_office" data-id="${t.id}" title="Auto-reply or OOO — not a real reply, excluded from the reply-rate metric">Out of Office</button>
-          <button class="secondary" data-status="skipped" data-id="${t.id}">Skip</button>
-        </div>
-      </div>`;
-    })
-    .join('');
+  const sentList = document.getElementById('sent-list');
+  sentList.innerHTML = sentTouches.length
+    ? sentTouches.map((t) => queueCard(t, { pending: false })).join('')
+    : '<div class="card">Nothing sent yet awaiting a reply.</div>';
 
   list.querySelectorAll('[data-save]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const card = btn.closest('.queue-card');
-      const body = {};
-      const subjectEl = card.querySelector('[data-field="subject"]');
-      const bodyEl = card.querySelector('[data-field="body"]');
-      if (subjectEl) body.subject = subjectEl.value;
-      if (bodyEl) body.body = bodyEl.value;
-      await apiFetch(`/api/touches/${btn.dataset.save}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      await saveDraftEdits(btn.closest('.queue-card'), btn.dataset.save);
       btn.textContent = 'Saved';
-      setTimeout(() => (btn.textContent = 'Save Edits'), 1200);
+      setTimeout(() => (btn.textContent = 'Save Draft'), 1200);
     });
   });
 
-  list.querySelectorAll('[data-status]').forEach((btn) => {
+  list.querySelectorAll('[data-send]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.send;
+      const card = btn.closest('.queue-card');
+      const errEl = document.getElementById(`send-error-${id}`);
+      errEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
+      // Save whatever's currently in the fields first — Approve & Send
+      // always sends the CURRENT edited content, never stale server state.
+      await saveDraftEdits(card, id);
+
+      const backupReason = state.queueScope.asOwner ? state.queueScope.backupReason : undefined;
+      const res = await apiFetch(`/api/touches/${id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backupReason ? { backupReason } : {}),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Send failed.' }));
+        errEl.textContent = err.details ? `${err.error} ${err.details.join('; ')}` : err.error;
+        btn.disabled = false;
+        btn.textContent = 'Approve & Send';
+        return;
+      }
+      loadQueue();
+    });
+  });
+
+  list.querySelectorAll('[data-handled]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await apiFetch(`/api/touches/${btn.dataset.handled}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' }),
+      });
+      loadQueue();
+    });
+  });
+
+  document.querySelectorAll('#queue-list [data-status], #sent-list [data-status]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await apiFetch(`/api/touches/${btn.dataset.id}`, {
         method: 'PATCH',
@@ -315,6 +431,20 @@ async function loadQueue() {
       });
       loadQueue();
     });
+  });
+}
+
+async function saveDraftEdits(card, id) {
+  const subjectEl = card.querySelector('[data-field="subject"]');
+  const bodyEl = card.querySelector('[data-field="body"]');
+  if (!subjectEl && !bodyEl) return;
+  const patch = {};
+  if (subjectEl) patch.subject = subjectEl.value;
+  if (bodyEl) patch.body = bodyEl.value;
+  await apiFetch(`/api/touches/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
   });
 }
 
@@ -401,17 +531,27 @@ async function loadAccounts() {
 
 async function loadOwners() {
   const owners = await apiFetch('/api/owners').then((r) => r.json());
+  state.owners = owners; // keep the queue's copy in sync too
   const list = document.getElementById('owners-list');
   list.innerHTML = owners
-    .map(
-      (o) => `<div class="card">
+    .map((o) => {
+      const gmailStatus = o.gmailTokens && o.gmailTokens.email
+        ? `<span class="threshold-status on_track"><span class="dot"></span>Connected as ${escapeHtml(o.gmailTokens.email)}</span>`
+        : `<span class="threshold-status below_kill"><span class="dot"></span>Not connected — sends for ${escapeHtml(o.name)} are blocked until this is done</span>`;
+      return `<div class="card">
         <h3>${escapeHtml(o.name)}</h3>
         <label>Email</label><input data-owner="${o.id}" data-field="email" value="${escapeHtml(o.email)}" />
         <label>Calendly Link</label><input data-owner="${o.id}" data-field="calendlyLink" value="${escapeHtml(o.calendlyLink)}" />
         <div class="card-meta" style="margin-top:8px">Backup for: ${escapeHtml(o.backupFor || '—')}</div>
-        <div class="actions" style="margin-top:10px"><button data-save-owner="${o.id}">Save</button></div>
-      </div>`
-    )
+        <div class="threshold-note" style="margin-top:10px">${gmailStatus}</div>
+        <div class="actions" style="margin-top:10px">
+          <button data-save-owner="${o.id}">Save</button>
+          ${o.gmailTokens && o.gmailTokens.email
+            ? `<button class="secondary" data-gmail-disconnect="${o.id}">Disconnect Gmail</button>`
+            : `<button class="secondary" data-gmail-connect="${o.id}">Connect Gmail</button>`}
+        </div>
+      </div>`;
+    })
     .join('');
 
   list.querySelectorAll('[data-save-owner]').forEach((btn) => {
@@ -428,6 +568,27 @@ async function loadOwners() {
       });
       btn.textContent = 'Saved';
       setTimeout(() => (btn.textContent = 'Save'), 1200);
+    });
+  });
+
+  list.querySelectorAll('[data-gmail-connect]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const res = await apiFetch(`/api/owners/${btn.dataset.gmailConnect}/gmail/connect`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Gmail connect is not available.' }));
+        alert(err.error);
+        return;
+      }
+      const { authUrl } = await res.json();
+      window.open(authUrl, '_blank', 'noopener');
+    });
+  });
+
+  list.querySelectorAll('[data-gmail-disconnect]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Disconnect this Gmail account? Sends for this owner will be blocked until reconnected.')) return;
+      await apiFetch(`/api/owners/${btn.dataset.gmailDisconnect}/gmail/disconnect`, { method: 'POST' });
+      loadOwners();
     });
   });
 }

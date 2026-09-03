@@ -62,7 +62,7 @@ function priorStageWasReplied(accountId, funnel, priorStage) {
 function generateAndQueueDraft({ rawDraftFn, funnel, stage, account, allAccounts, promptInput }) {
   const rawDraft = rawDraftFn();
   const owner = store.listOwners().find((o) => o.id === account.ownerId) || null;
-  const finalDraft = interpolateDraft(rawDraft, owner);
+  const finalDraft = interpolateDraft(rawDraft, owner, account.id);
   const { valid, errors } = validateDraft(finalDraft, account, owner, allAccounts);
 
   store.logDraftGeneration({

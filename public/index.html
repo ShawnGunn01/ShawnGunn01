@@ -64,15 +64,22 @@
     </section>
 
     <section id="tab-queue" class="tab-panel">
-      <div class="panel-toolbar">
-        <label>Owner
-          <select id="queue-owner-filter">
-            <option value="">All</option>
-          </select>
-        </label>
-        <span class="hint">AI drafts every touch below. Nothing sends automatically — edit, then send from your own inbox and mark it Sent.</span>
+      <div class="panel-toolbar" id="queue-scope-bar">
+        <span class="hint" id="queue-scope-label"></span>
+        <span class="admin-only" hidden>
+          <label>View as owner
+            <select id="queue-owner-filter-admin"><option value="">All</option></select>
+          </label>
+        </span>
+        <span id="backup-access-control"></span>
       </div>
+      <span class="hint">Edit a draft inline, then <strong>Approve &amp; Send</strong> — it sends immediately through the assigned owner's own connected Gmail. The opt-out and Calendly links are re-checked at send time; a draft missing either is blocked, not just flagged.</span>
+
+      <h3 style="margin-top:20px">Needs Review</h3>
       <div id="queue-list" class="card-list"></div>
+
+      <h3 style="margin-top:24px">Sent — Awaiting Reply <span class="card-meta">mark manually until reply-tracking is automated</span></h3>
+      <div id="sent-list" class="card-list"></div>
     </section>
 
     <section id="tab-accounts" class="tab-panel">
@@ -91,7 +98,8 @@
     </section>
 
     <section id="tab-owners" class="tab-panel">
-      <div class="card-list" id="owners-list"></div>
+      <span class="hint">Gmail connects per owner via OAuth — sends always go out through that owner's own account, never a shared one.</span>
+      <div class="card-list" id="owners-list" style="margin-top:12px"></div>
     </section>
   </main>
 

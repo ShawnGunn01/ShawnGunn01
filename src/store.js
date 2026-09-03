@@ -15,6 +15,7 @@ const FILES = {
   metricsSnapshots: path.join(DATA_DIR, 'metrics_snapshots.json'),
   draftGenerations: path.join(DATA_DIR, 'draft_generations.json'),
   users: path.join(DATA_DIR, 'users.json'),
+  sends: path.join(DATA_DIR, 'sends.json'),
 };
 
 // Dashboard access control (see Dashboard Access doc). Distinct from
@@ -35,8 +36,8 @@ const DEFAULT_USERS = [
 const REQUIRED_SYNC_FIELDS = ['id', 'name', 'ownerId', 'lastPurchaseDate'];
 
 const DEFAULT_OWNERS = [
-  { id: 'audrey', name: 'Audrey', email: '', calendlyLink: '', backupFor: 'nick' },
-  { id: 'nick', name: 'Nick', email: '', calendlyLink: '', backupFor: 'audrey' },
+  { id: 'audrey', name: 'Audrey', email: '', calendlyLink: '', backupFor: 'nick', gmailTokens: null },
+  { id: 'nick', name: 'Nick', email: '', calendlyLink: '', backupFor: 'audrey', gmailTokens: null },
 ];
 
 function ensureFile(file, seed) {
@@ -97,6 +98,78 @@ function updateAccount(id, patch) {
   Object.assign(account, patch);
   saveAccounts(accounts);
   return account;
+}
+
+// Single source of truth for opt-out state changes — both directions
+// (suppress on click, manually clear later) go through this one function
+// so there's exactly one place that touches `optedOut`, not several
+// call sites that could drift (Prompt 8 Item 5: compliance-critical).
+// Suppressing does NOT clear funnel/stage history (nothing to gate on
+// while optedOut is true — the engine filters these accounts out before
+// any funnel logic runs, see engine.js runEngineTick). Clearing puts the
+// account back to funnel 'none' so the next engine tick re-evaluates it
+// from scratch, rather than resuming mid-sequence as if nothing happened.
+function setOptOut(accountId, optedOut) {
+  const patch = optedOut ? { optedOut: true, funnel: 'none', stage: null } : { optedOut: false, funnel: 'none', stage: null };
+  return updateAccount(accountId, patch);
+}
+
+// Shared by the manual "Mark Rebooked" action and the Calendly webhook
+// (Prompt 8 Item 4) so there is exactly one rebook code path, not two that
+// could drift — the webhook doesn't reimplement any of this.
+function rebookAccount(accountId, { amount = 0, source = 'manual', fromFunnel } = {}) {
+  const account = getAccount(accountId);
+  if (!account) return null;
+  const motion = fromFunnel || account.funnel;
+  const rebookedAt = [...(account.rebookedAt || []), { at: new Date().toISOString(), amount, fromFunnel: motion, motion: 'win_back', source }];
+  const updated = updateAccount(accountId, {
+    funnel: 'none',
+    stage: null,
+    lastPurchaseDate: todayStrForStore(),
+    lastTouchDate: todayStrForStore(),
+    purchaseCount: (account.purchaseCount || 0) + 1,
+    rebookedRevenue: (account.rebookedRevenue || 0) + amount,
+    rebookedAt,
+  });
+  recordPurchase({ accountId, date: todayStrForStore(), amount, source: 'rebook' });
+  logActivity('rebooked', accountId, `${account.name} rebooked${amount ? ` for $${amount}` : ''}${source === 'calendly_webhook' ? ' (auto — Calendly booking)' : ''}`, { amount, source });
+  return updated;
+}
+
+// store.js intentionally has no dependency on src/dates.js (keeps it a
+// leaf module) — this tiny local helper avoids a require cycle risk while
+// matching the same 'YYYY-MM-DD' format used everywhere else.
+function todayStrForStore() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ---------- Sends (full send audit — Prompt 8 Item 6) ----------
+// One row per actual email send: who clicked Approve & Send, when, and
+// whether the draft was edited first. Distinct from the per-account
+// activity log (human-readable) and from draft_generations (the drafting
+// engine's own attempt log) — this is specifically "prove what went out
+// and who sent it," the compliance-relevant record for the dashboard.
+
+function logSend({ touchId, accountId, ownerId, sentBy, wasEdited, gmailMessageId }) {
+  const sends = readJson(FILES.sends, []);
+  const entry = {
+    id: genId('send'),
+    touchId,
+    accountId,
+    ownerId, // whose Gmail it went out through
+    sentBy, // who clicked Approve & Send (may differ — backup coverage)
+    wasEdited: !!wasEdited,
+    gmailMessageId: gmailMessageId || null,
+    at: new Date().toISOString(),
+  };
+  sends.push(entry);
+  writeJson(FILES.sends, sends);
+  return entry;
+}
+
+function listSends(limit = 100) {
+  const sends = readJson(FILES.sends, []);
+  return sends.slice(-limit).reverse();
 }
 
 function validateSyncRecord(rec) {
@@ -245,11 +318,19 @@ function createTouch({ accountId, funnel, stage, subject, body, ownerId, kind, d
     kind: kind || 'email', // 'email' | 'call_flag'
     subject,
     body,
+    // Immutable snapshot of what the drafting engine actually generated —
+    // never touched by later edits — so "edited-or-not" at send time
+    // (Prompt 8 Item 6) is a real comparison, not a guess.
+    originalSubject: subject,
+    originalBody: body,
     ownerId,
     draftSource: draftSource || 'template', // 'template' | 'ai' | 'template_fallback'
     status: 'pending_review', // pending_review | sent | replied | out_of_office | skipped
     createdAt: new Date().toISOString(),
     sentAt: null,
+    sentBy: null, // userId who clicked Approve & Send (may differ from ownerId — backup coverage)
+    wasEditedAtSend: null,
+    gmailMessageId: null,
     repliedAt: null,
     replyMarkedBy: null, // ownerId who marked replied/out_of_office — data-quality audit trail
   };
@@ -282,6 +363,10 @@ function hasTouchForStage(accountId, funnel, stage) {
 
 function listOwners() {
   return readJson(FILES.owners, DEFAULT_OWNERS);
+}
+
+function getOwner(id) {
+  return listOwners().find((o) => o.id === id) || null;
 }
 
 function updateOwner(id, patch) {
@@ -407,6 +492,8 @@ module.exports = {
   saveAccounts,
   getAccount,
   updateAccount,
+  setOptOut,
+  rebookAccount,
   syncAccounts,
   hoursSinceLastSync,
   listTouches,
@@ -417,6 +504,7 @@ module.exports = {
   lastTouchForStage,
   hasTouchForStage,
   listOwners,
+  getOwner,
   updateOwner,
   logActivity,
   listActivity,
@@ -430,6 +518,8 @@ module.exports = {
   listEngineRuns,
   logDraftGeneration,
   listDraftGenerations,
+  logSend,
+  listSends,
   listUsers,
   getUser,
 };

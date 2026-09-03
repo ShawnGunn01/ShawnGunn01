@@ -109,20 +109,98 @@ in their own tools and pointed at this app:
   model call means replacing the body of the template functions with an API
   call that returns `{ subject, body }`; nothing else in the pipeline
   changes.
-- **Gmail send**: the review queue shows the editable draft and a "Mark
-  Sent" action; it does not call the Gmail API. Owners copy/paste (or you
-  can wire a `mailto:` / Gmail compose deep link) and send from their own
-  inbox, matching the "nothing auto-sends" rule.
-- **Calendly**: owners' Calendly links are stored (Owners tab /
-  `PATCH /api/owners/:id`) and interpolated into draft templates as
-  `{{OWNER_CALENDLY_LINK}}`; there's no live Calendly API call.
-- **Reply tracking**: there's no inbox-parsing integration. A touch is
-  marked "Replied" manually by the owner from the review queue, which is
-  what feeds the reply-rate metric and the "stand down if replied"
-  sequencing logic.
+- **Gmail send is real** (Prompt 8) — "Approve & Send" in the review queue
+  calls the Gmail API directly via per-owner OAuth (`src/gmail.js`), never a
+  shared account. It requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  and `GOOGLE_REDIRECT_URI` to be provisioned (a Google Cloud OAuth client
+  with the Gmail API enabled) before any owner can connect — see **Owner
+  workflow setup** below. Without them, "Connect Gmail" on the Owners tab
+  returns a clear error instead of failing silently.
+- **Calendly booking → auto-rebook is real** (Prompt 8) — `POST
+  /api/webhooks/calendly` marks an account "Rebooked" the moment its owner's
+  Calendly link gets booked, no manual step. Requires registering a webhook
+  subscription with Calendly and setting `CALENDLY_WEBHOOK_SIGNING_KEY` —
+  see **Owner workflow setup** below.
+- **Reply tracking**: there's still no inbox-parsing integration. A touch is
+  marked "Replied" manually by the owner from the "Sent — Awaiting Reply"
+  list, which is what feeds the reply-rate metric and the "stand down if
+  replied" sequencing logic.
 
 Given the budget (~$20–95/mo tools) and the "self-hosted dashboard
 near-$0" line in the brief, this app *is* that self-hosted dashboard piece.
+
+## Owner workflow setup (Prompt 8)
+
+Two credentials must be provisioned before the owner-facing workflow is
+fully live — without them the app runs fine, but connect/send and the
+webhook are disabled with a clear error rather than failing silently
+(console warnings print at startup for both, same pattern as `SYNC_TOKEN`):
+
+1. **Gmail OAuth** — create a Google Cloud OAuth 2.0 client (Gmail API
+   enabled, `https://www.googleapis.com/auth/gmail.send` +
+   `.../auth/userinfo.email` scopes), add
+   `<APP_BASE_URL>/api/gmail/callback` as an authorized redirect URI, and
+   set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI`
+   in the environment. Each owner then clicks **Connect Gmail** on the
+   Owners tab and authorizes their own account — the refresh token is
+   stored on that owner's record only (`src/store.js` `gmailTokens`) and
+   used only for sends attributed to them.
+2. **Calendly webhook** — register a webhook subscription (Calendly's
+   webhook subscription API) for the `invitee.created` event, pointed at
+   `POST <APP_BASE_URL>/api/webhooks/calendly`, and set
+   `CALENDLY_WEBHOOK_SIGNING_KEY` to the signing key Calendly gives you for
+   that subscription. No other Calendly-side configuration is needed — the
+   booking-to-account mapping rides on a `?utm_content=<accountId>` tracking
+   parameter this app already appends to every Calendly link it drafts
+   (`src/interpolate.js`), which Calendly passes straight through to the
+   webhook payload.
+
+### Per-owner review queue and backup coverage
+
+Each owner (Audrey, Nick) sees only their own queue on the Review Queue tab
+by default. The one documented way into someone else's queue is backup
+coverage: if the Owners tab has your record naming who you cover (the
+`backupFor` field — set by an admin, never self-declared), a "Cover
+[Name]'s queue" button appears; using it requires typing a reason, and the
+access is logged (`backup_queue_access` in the activity feed) every time.
+Admins (Shawn, Ira) see every queue without any of this, since that's
+oversight, not backup coverage. Approve & Send always goes out through the
+*assigned* owner's own Gmail regardless of who clicked it — backup coverage
+means operating someone's queue while they're out, not sending as yourself.
+
+### Opt-out — compliance-critical, so spelled out precisely
+
+`GET /api/unsubscribe/:accountId` (the link in every automated email's
+footer) and `POST /api/accounts/:id/opt-out` (an internal action) are the
+only two doors that set an account opted-out, and both go through the same
+function, `store.setOptOut(accountId, true)`. The instant that runs:
+
+- The account flips to `optedOut: true`, `funnel: 'none'`, `stage: null`.
+- The cohort/timing engine (`src/engine.js` `runEngineTick`) filters
+  opted-out accounts out **before** any per-account motion logic runs — so
+  this one filter covers Win-Back, Proposal Follow-Up, and Nurture alike;
+  there's no separate opt-out check needed (or possible to forget) inside
+  each motion.
+- Nothing further happens on a timer or a queue — suppression is immediate
+  and stays in effect indefinitely.
+
+The only way back is `POST /api/accounts/:id/clear-optout`, **admin-only**
+(Shawn/Ira — reversing a compliance suppression is a deliberate decision,
+not a routine action), which also goes through `store.setOptOut`, this time
+with `false`. Clearing resets `funnel` to `'none'` rather than resuming
+mid-sequence, so the engine re-evaluates the account from scratch on its
+next tick instead of picking up as if the opt-out never happened.
+
+Both directions are logged to the activity feed (`opted_out` /
+`optout_cleared`), visible on the dashboard.
+
+Proof this actually holds, not just reads correctly: `test/optout.test.js`
+seeds an account into each of the three motions, opts it out mid-sequence,
+runs the engine, and asserts no new touch is drafted for any of them —
+plus one test that hits the real `GET /api/unsubscribe/:id` HTTP route
+(not just the underlying store function) and confirms the engine honors it
+on the very next tick, and one confirming a viewer's clear-optout attempt
+is rejected while an admin's succeeds.
 
 ## Known risks (carried into every design decision here)
 
@@ -179,14 +257,21 @@ test/             node:test coverage for the cohort/timing rules
 | GET | `/api/accounts` | List accounts with current funnel/stage |
 | GET | `/api/accounts/:id` | Account detail with its touch history |
 | POST | `/api/accounts/:id/opt-out` | Compliance opt-out (internal action) |
-| GET | `/api/unsubscribe/:id` | Public opt-out link used in email footers |
+| GET | `/api/unsubscribe/:id` | Public opt-out link used in email footers — see the opt-out walkthrough above |
+| POST | `/api/accounts/:id/clear-optout` | Admin-only: manually reverses an opt-out |
 | POST | `/api/accounts/:id/rebook` | Record a win-back conversion + revenue |
 | POST | `/api/accounts/:id/proposal` | Log a sent proposal (enters Proposal Follow-Up) |
 | POST | `/api/accounts/:id/proposal/outcome` | Record `full_service` / `diy` / `lost` |
-| GET | `/api/owners` | List Audrey/Nick + their email/Calendly link |
+| GET | `/api/owners` | List Audrey/Nick + their email/Calendly link/Gmail connection status |
 | PATCH | `/api/owners/:id` | Update an owner's email/Calendly link |
-| GET | `/api/touches?ownerId=&status=` | Review queue (pending/sent/replied/skipped) |
-| PATCH | `/api/touches/:id` | Edit a draft, or mark sent/replied/skipped |
+| GET | `/api/owners/:id/gmail/connect` | Returns the Google OAuth consent URL for this owner |
+| GET | `/api/gmail/callback` | OAuth redirect target — exchanges the code, stores the owner's refresh token |
+| POST | `/api/owners/:id/gmail/disconnect` | Disconnects an owner's Gmail |
+| GET | `/api/touches?status=&asOwner=&backupReason=` | Per-owner queue, scoped to the caller by default — see "Per-owner review queue and backup coverage" above |
+| PATCH | `/api/touches/:id` | Edit a draft, or mark replied/out_of_office/skipped |
+| POST | `/api/touches/:id/send` | Approve & Send — hard-blocks on missing opt-out/Calendly links or an unconnected Gmail, then sends via the assigned owner's Gmail |
+| GET | `/api/sends` | Full send audit: who, when, edited-or-not, per Prompt 8 Item 6 |
+| POST | `/api/webhooks/calendly` | Calendly `invitee.created` → auto-marks the tracked account Rebooked |
 | GET | `/api/dashboard` | The validated dashboard metrics |
 | POST | `/api/dev/seed` | Load `data/sample-accounts.json` for a demo |
 

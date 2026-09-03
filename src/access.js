@@ -52,4 +52,48 @@ function requireRole(role) {
   };
 }
 
-module.exports = { currentUser, canAccess, requireUser, requireRole };
+// Per-owner review queue scoping (Prompt 8 Item 1).
+// ----------------------------------------------------
+// Default: a viewer sees only their OWN queue — for Audrey/Nick, whose
+// user id doubles as their owner id, that's automatic. An admin (Shawn,
+// Ira) sees everyone's, for oversight, with no special flag required —
+// that's a different concern from backup coverage between owners.
+//
+// Backup coverage — the "documented, explicit way for one to access the
+// other's queue" — is a deliberate, named exception, not a side door:
+// - ?asOwner=<targetOwnerId> must be passed explicitly; nothing defaults into it.
+// - Only valid if the REQUESTER's own owner record names the target as who
+//   they cover (store.js DEFAULT_OWNERS `backupFor` — read as "[this
+//   owner] is backup for [backupFor]"; set by an admin on the Owners tab,
+//   not self-declared by whoever's asking).
+// - ?backupReason=<text> is required — a one-line reason, not just a flag.
+// - Every use is logged (see server.js) so it's auditable after the fact,
+//   not just gate-checked in the moment.
+//
+// Pure — no Express objects — so this is unit-testable directly.
+function resolveQueueScope(user, query, store) {
+  if (!user) return { error: 'Unrecognized or missing X-User-Id.' };
+
+  if (user.role === 'admin') {
+    // Admins can optionally filter by owner (plain convenience, not backup
+    // coverage — they already have full visibility, so nothing to log).
+    return { ownerId: query.ownerId || null, isBackup: false };
+  }
+
+  const requestedOwnerId = query.asOwner;
+  if (!requestedOwnerId || requestedOwnerId === user.id) {
+    return { ownerId: user.id, isBackup: false };
+  }
+
+  const requesterOwner = store.getOwner(user.id);
+  if (!requesterOwner || requesterOwner.backupFor !== requestedOwnerId) {
+    return { error: `${user.name} is not the designated backup for ${requestedOwnerId}'s queue. Backup coverage is set on the Owners tab, not self-declared.` };
+  }
+  if (!query.backupReason || !String(query.backupReason).trim()) {
+    return { error: 'backupReason is required to view another owner\'s queue for backup coverage.' };
+  }
+
+  return { ownerId: requestedOwnerId, isBackup: true, reason: String(query.backupReason).trim() };
+}
+
+module.exports = { currentUser, canAccess, requireUser, requireRole, resolveQueueScope };
