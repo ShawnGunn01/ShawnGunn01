@@ -208,14 +208,27 @@ app.post('/api/accounts/:id/proposal/outcome', (req, res) => {
 
 // ---------- Owner review queue ----------
 
+// Strips the Gmail OAuth refresh token before an owner record ever
+// leaves this server — it's a long-lived credential, and the UI only
+// ever needs connection status + the connected email address to show
+// "Connected as x@gmail.com" (public.app.js loadOwners/queueCard).
+function sanitizeOwner(owner) {
+  if (!owner) return owner;
+  const { gmailTokens, ...rest } = owner;
+  return {
+    ...rest,
+    gmailTokens: gmailTokens ? { email: gmailTokens.email, connectedAt: gmailTokens.connectedAt, connected: true } : null,
+  };
+}
+
 app.get('/api/owners', (req, res) => {
-  res.json(store.listOwners());
+  res.json(store.listOwners().map(sanitizeOwner));
 });
 
 app.patch('/api/owners/:id', (req, res) => {
   const owner = store.updateOwner(req.params.id, req.body || {});
   if (!owner) return res.status(404).json({ error: 'Owner not found' });
-  res.json(owner);
+  res.json(sanitizeOwner(owner));
 });
 
 // Per-owner queue (Prompt 8 Item 1): a viewer sees only their own queue by
@@ -239,9 +252,14 @@ app.get('/api/touches', access.requireUser, (req, res) => {
 
 const TOUCH_STATUSES = ['pending_review', 'sent', 'replied', 'out_of_office', 'skipped'];
 
-// Owner edits the draft, then marks it sent (after sending from their own
-// inbox), replied, out of office, or skipped. Nothing here sends email on
-// the owner's behalf.
+// Owner edits the draft, marks a call/text handled, or marks an
+// already-sent touch replied/out-of-office/skipped. An EMAIL touch can
+// never reach 'sent' through this route — that would completely bypass
+// Approve & Send's required-element guardrail re-check, Gmail auth,
+// backup-access logging, and send-audit record (POST /api/touches/:id/send
+// is the only path that may actually send). 'sent' here is real only for
+// call_flag touches, which were never emailed in the first place — the UI
+// uses it as "Mark Handled (Called/Texted)".
 //
 // out_of_office is deliberately a separate status from replied (Metrics
 // Spec §3): an auto-responder is not a reply, and folding it into
@@ -253,6 +271,9 @@ app.patch('/api/touches/:id', (req, res) => {
 
   if (req.body?.status !== undefined && !TOUCH_STATUSES.includes(req.body.status)) {
     return res.status(400).json({ error: `status must be one of: ${TOUCH_STATUSES.join(', ')}` });
+  }
+  if (req.body?.status === 'sent' && touch.kind !== 'call_flag') {
+    return res.status(400).json({ error: 'Email touches cannot be marked sent directly — use POST /api/touches/:id/send (Approve & Send).' });
   }
 
   const patch = {};
@@ -340,6 +361,14 @@ app.post('/api/touches/:id/send', access.requireUser, async (req, res) => {
   const account = store.getAccount(touch.accountId);
   if (!owner) return res.status(404).json({ error: 'Owner not found' });
   if (!account) return res.status(404).json({ error: 'Account not found' });
+  // Compliance-critical (Prompt 8 Item 5): a touch drafted before an
+  // account opted out must not become sendable just because it was
+  // already sitting in the review queue when the opt-out happened. The
+  // public unsubscribe link promises IMMEDIATE suppression — this is the
+  // other half of that promise, alongside store.setOptOut.
+  if (account.optedOut) {
+    return res.status(400).json({ error: `${account.name} has opted out — this draft can no longer be sent.` });
+  }
 
   // Who may click Approve & Send on THIS touch: the assigned owner
   // themselves, an admin (oversight), or that owner's documented backup —
@@ -459,7 +488,7 @@ app.post('/api/owners/:id/gmail/disconnect', access.requireUser, (req, res) => {
   const owner = store.updateOwner(req.params.id, { gmailTokens: null });
   if (!owner) return res.status(404).json({ error: 'Owner not found' });
   store.logActivity('gmail_disconnected', null, `${owner.name} disconnected Gmail`);
-  res.json(owner);
+  res.json(sanitizeOwner(owner));
 });
 
 // ---------- Calendly webhook (Prompt 8 Item 4) ----------
@@ -504,7 +533,17 @@ app.post('/api/webhooks/calendly', (req, res) => {
     return res.status(200).json({ ignored: true, reason: 'accountId not found' });
   }
 
+  // Idempotency — see store.hasProcessedCalendlyEvent. A duplicate
+  // delivery of the same booking must never re-run the rebook (it would
+  // double the purchase/revenue/rebookedAt records) — acknowledge it as
+  // handled instead, the same 200 a fresh delivery would get.
+  const eventKey = calendly.extractEventKey(event);
+  if (eventKey && store.hasProcessedCalendlyEvent(eventKey)) {
+    return res.status(200).json({ ignored: true, reason: 'duplicate delivery — already processed' });
+  }
+
   const updated = store.rebookAccount(accountId, { fromFunnel: account.funnel, source: 'calendly_webhook' });
+  if (eventKey) store.markCalendlyEventProcessed(eventKey);
   res.status(200).json({ rebooked: true, accountId: updated.id });
 });
 

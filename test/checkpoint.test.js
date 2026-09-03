@@ -106,6 +106,24 @@ test('Rejecting a checkpoint drafts nothing and leaves the account unchanged', (
   assert.equal(store.getCheckpoint(checkpoint.id).reason, 'anniversary date looks wrong, checking with Salesforce first');
 });
 
+test('Codex fix: a rejected checkpoint does NOT reappear on the next engine tick — rejection holds until the underlying data changes', () => {
+  const account = seedAccount({ id: 'acct_checkpoint_reject_persist', eventAnniversaryDate: addDays(todayStr(), 75) });
+  engine.runEngineTick();
+  const checkpoint = store.listCheckpoints({ status: 'pending' }).find((c) => c.accountId === account.id);
+  engine.rejectCheckpoint(checkpoint.id, 'shawn', 'not yet');
+
+  // Run several more ticks — nothing about the account changed, so the
+  // same warm_up transition would be "due" every single time.
+  engine.runEngineTick();
+  engine.runEngineTick();
+  engine.runEngineTick();
+
+  const allCheckpointsForAccount = store.listCheckpoints().filter((c) => c.accountId === account.id);
+  assert.equal(allCheckpointsForAccount.length, 1, 'no new checkpoint should be proposed for the same rejected transition');
+  assert.equal(allCheckpointsForAccount[0].status, 'rejected');
+  assert.equal(store.listTouches().filter((t) => t.accountId === account.id).length, 0);
+});
+
 test('Approving or rejecting an already-decided checkpoint is rejected, not silently repeated', () => {
   const account = seedAccount({ id: 'acct_checkpoint_double', eventAnniversaryDate: addDays(todayStr(), 75) });
   engine.runEngineTick();

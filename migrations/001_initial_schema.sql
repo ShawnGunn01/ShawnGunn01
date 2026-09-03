@@ -291,6 +291,17 @@ create table monthly_reviews (
 
 create index monthly_reviews_period_idx on monthly_reviews(period_label);
 
+-- ---------- calendly_events (webhook delivery idempotency) ----------
+-- Webhooks are commonly delivered more than once for the same booking — a
+-- retry after a slow/failed response, or a genuine provider replay. This
+-- is the dedup record: one row per invitee event URI actually processed,
+-- so a replayed delivery is acknowledged without re-running rebookAccount.
+
+create table calendly_events (
+  event_key   text primary key,   -- the invitee's Calendly resource URI
+  processed_at timestamptz not null default now()
+);
+
 create index sends_account_idx on sends(account_id);
 create index sends_at_idx on sends(at desc);
 

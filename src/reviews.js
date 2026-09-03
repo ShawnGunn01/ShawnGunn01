@@ -80,11 +80,19 @@ function generateMonthlyReview() {
   const sends = store.listSends(2000);
   const activity = store.listActivity(5000);
   const feedback = store.listDraftFeedback({ limit: 1000 });
-  const priorReview = store.listMonthlyReviews(1)[0] || null;
+  const periodLabel = todayStr().slice(0, 7); // 'YYYY-MM'
+
+  // The comparison for "two months running" must be against an EARLIER
+  // period, not just whatever was generated most recently — "Generate
+  // Review Now" can legitimately be clicked more than once in the same
+  // month (re-running it after fixing something), and comparing that
+  // regenerated report against itself would manufacture a false
+  // escalation out of two clicks rather than two real months.
+  const priorReview = store.listMonthlyReviews(50).find((r) => r.periodLabel !== periodLabel) || null;
 
   const report = {
     generatedAt: new Date().toISOString(),
-    periodLabel: todayStr().slice(0, 7), // 'YYYY-MM'
+    periodLabel,
     targets: dash.thresholds,
     draftEditRate: draftEditRate(sends),
     optOutTrend: optOutTrend(activity, accounts),

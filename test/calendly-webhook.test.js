@@ -108,3 +108,56 @@ test('A booking that cannot be matched to an account is acknowledged (so Calendl
   const body = await res.json();
   assert.equal(body.ignored, true);
 });
+
+// ---------- Codex review fixes ----------
+
+test('Codex fix: rebooking via Calendly closes an open proposal, so it is not drafted again on the next tick', async () => {
+  const account = seedAccount({
+    id: 'acct_calendly_proposal',
+    funnel: 'proposal_follow_up',
+    stage: 'check_in',
+    proposal: { sentDate: addDays(todayStr(), -5), eventDate: addDays(todayStr(), 60), outcome: null },
+  });
+  const rawBody = JSON.stringify({ event: 'invitee.created', payload: { uri: 'https://api.calendly.com/scheduled_events/evt1/invitees/inv1', tracking: { utm_content: account.id } } });
+
+  const res = await fetch(`${server.baseUrl}/api/webhooks/calendly`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Calendly-Webhook-Signature': sign(rawBody) },
+    body: rawBody,
+  });
+  assert.equal(res.status, 200);
+
+  const updated = store.getAccount(account.id);
+  assert.ok(updated.proposal.outcome, 'the proposal must be closed, not left open, once the account has rebooked');
+  assert.notEqual(updated.proposal.outcome, null);
+
+  const engine = require('../src/engine');
+  engine.runEngineTick();
+  const touches = store.listTouches().filter((t) => t.accountId === account.id);
+  assert.equal(touches.length, 0, 'a rebooked account must not get another Proposal Follow-Up touch drafted');
+});
+
+test('Codex fix: a duplicate webhook delivery of the same booking is ignored, not re-processed', async () => {
+  const account = seedAccount({ id: 'acct_calendly_dup', funnel: 'win_back', stage: 'soft_ask' });
+  const rawBody = JSON.stringify({ event: 'invitee.created', payload: { uri: 'https://api.calendly.com/scheduled_events/evt2/invitees/inv2', tracking: { utm_content: account.id } } });
+  const headers = { 'Content-Type': 'application/json', 'Calendly-Webhook-Signature': sign(rawBody) };
+
+  const first = await fetch(`${server.baseUrl}/api/webhooks/calendly`, { method: 'POST', headers, body: rawBody });
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).rebooked, true);
+
+  const purchaseCountAfterFirst = store.getAccount(account.id).purchaseCount;
+  const rebookedAtCountAfterFirst = store.getAccount(account.id).rebookedAt.length;
+
+  // Same signature works because it's the literal same rawBody+timestamp —
+  // a real retry from Calendly would resend the identical payload/signature.
+  const second = await fetch(`${server.baseUrl}/api/webhooks/calendly`, { method: 'POST', headers, body: rawBody });
+  assert.equal(second.status, 200);
+  const secondBody = await second.json();
+  assert.equal(secondBody.ignored, true);
+  assert.match(secondBody.reason, /duplicate/);
+
+  const finalAccount = store.getAccount(account.id);
+  assert.equal(finalAccount.purchaseCount, purchaseCountAfterFirst, 'a replayed delivery must not double-count the purchase');
+  assert.equal(finalAccount.rebookedAt.length, rebookedAtCountAfterFirst, 'a replayed delivery must not append a second rebooking record');
+});

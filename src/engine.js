@@ -112,7 +112,11 @@ function checkpointModeOn() {
 
 function proposeOrDraft({ funnel, stage, account, allAccounts, counts, rawDraftFn, promptInput, onQueued }) {
   if (checkpointModeOn()) {
-    if (!store.hasPendingCheckpoint(account.id, funnel, stage)) {
+    // A rejected checkpoint for this exact transition stays rejected —
+    // see store.hasRejectedCheckpoint — until the account/stage data
+    // actually changes (e.g. a corrected anniversary date shifts which
+    // stage is due, which is a different checkpoint key entirely).
+    if (!store.hasPendingCheckpoint(account.id, funnel, stage) && !store.hasRejectedCheckpoint(account.id, funnel, stage)) {
       store.createCheckpoint({ accountId: account.id, funnel, stage });
       store.logActivity('checkpoint_pending', account.id, `${labelize(stage)} for ${account.name} is awaiting manual checkpoint approval (pilot observation window).`);
     }

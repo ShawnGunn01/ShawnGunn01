@@ -189,3 +189,59 @@ test('Admins see every owner\'s queue with no backup flag or logging required', 
   const activityAfter = store.listActivity(200).filter((a) => a.type === 'backup_queue_access').length;
   assert.equal(activityAfter, activityBefore, 'admin visibility is not backup coverage and must not be logged as such');
 });
+
+// ---------- Codex review fixes ----------
+
+test('Approve & Send is hard-blocked once the account has opted out, even for an already-queued draft', async () => {
+  const { account, touch } = seedAccountAndTouch('audrey');
+  // Sets optedOut directly, bypassing store.setOptOut's own touch-skipping
+  // cascade (covered separately below) — this isolates the send route's
+  // OWN account.optedOut guard as a defense-in-depth check independent of
+  // that cascade, matching the exact line Codex flagged (server.js /send).
+  store.updateAccount(account.id, { optedOut: true });
+  assert.equal(store.getTouch(touch.id).status, 'pending_review', 'sanity: the touch is still pending, not caught by the setOptOut cascade');
+
+  const callsBefore = sentCalls.length;
+  const res = await fetch(`${server.baseUrl}/api/touches/${touch.id}/send`, { method: 'POST', headers: { 'X-User-Id': 'audrey', 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /opted out/);
+  assert.equal(sentCalls.length, callsBefore, 'Gmail send must never be attempted for an opted-out account');
+});
+
+test('Opting out clears any drafts still sitting in the review queue for that account', async () => {
+  const { account, touch } = seedAccountAndTouch('audrey');
+  assert.equal(store.getTouch(touch.id).status, 'pending_review');
+
+  store.setOptOut(account.id, true);
+  assert.equal(store.getTouch(touch.id).status, 'skipped', 'a draft for an opted-out account should not sit visible as still-actionable');
+});
+
+test('GET /api/owners never returns the raw Gmail refresh token', async () => {
+  const res = await fetch(`${server.baseUrl}/api/owners`, { headers: { 'X-User-Id': 'shawn' } });
+  const owners = await res.json();
+  const audrey = owners.find((o) => o.id === 'audrey');
+  assert.ok(audrey.gmailTokens, 'connection status should still be visible');
+  assert.equal(audrey.gmailTokens.email, 'audrey@impact4good.example');
+  assert.equal(audrey.gmailTokens.connected, true);
+  assert.equal(audrey.gmailTokens.refreshToken, undefined, 'the refresh token must never leave the server');
+  assert.equal(JSON.stringify(owners).includes('fake-refresh-audrey'), false, 'the raw token string must not appear anywhere in the response');
+});
+
+test('PATCH /api/touches/:id rejects a direct \'sent\' transition for an email touch — Approve & Send is the only real send path', async () => {
+  const { touch } = seedAccountAndTouch('audrey');
+  const res = await fetch(`${server.baseUrl}/api/touches/${touch.id}`, { method: 'PATCH', headers: { 'X-User-Id': 'audrey', 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'sent' }) });
+  assert.equal(res.status, 400);
+  assert.equal(store.getTouch(touch.id).status, 'pending_review', 'the bypassed status change must not have taken effect');
+});
+
+test('PATCH /api/touches/:id still allows \'sent\' for a call_flag touch (Mark Handled) — it was never emailed', async () => {
+  const uid = Math.random().toString(36).slice(2, 8);
+  const account = { id: `acct_call_${uid}`, name: `Call Org ${uid}`, contactName: 'Elena', ownerId: 'audrey', lastPurchaseDate: addDays(todayStr(), -200) };
+  store.syncAccounts([account]);
+  const touch = store.createTouch({ accountId: account.id, funnel: 'win_back', stage: 'escalation', subject: '[Personal outreach]', body: 'Call script', ownerId: 'audrey', kind: 'call_flag', draftSource: 'template' });
+
+  const res = await fetch(`${server.baseUrl}/api/touches/${touch.id}`, { method: 'PATCH', headers: { 'X-User-Id': 'audrey', 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'sent' }) });
+  assert.equal(res.status, 200);
+  assert.equal(store.getTouch(touch.id).status, 'sent');
+});

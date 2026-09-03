@@ -20,6 +20,7 @@ const FILES = {
   checkpoints: path.join(DATA_DIR, 'checkpoints.json'),
   draftFeedback: path.join(DATA_DIR, 'draft_feedback.json'),
   monthlyReviews: path.join(DATA_DIR, 'monthly_reviews.json'),
+  calendlyEvents: path.join(DATA_DIR, 'calendly_events.json'),
 };
 
 // Dashboard access control (see Dashboard Access doc). Distinct from
@@ -115,7 +116,24 @@ function updateAccount(id, patch) {
 // from scratch, rather than resuming mid-sequence as if nothing happened.
 function setOptOut(accountId, optedOut) {
   const patch = optedOut ? { optedOut: true, funnel: 'none', stage: null } : { optedOut: false, funnel: 'none', stage: null };
-  return updateAccount(accountId, patch);
+  const updated = updateAccount(accountId, patch);
+  // Suppressing also clears any drafts still sitting in the review queue
+  // for this account — the send route hard-blocks an opted-out account
+  // regardless (server.js POST /api/touches/:id/send), but leaving a
+  // now-unsendable draft visible in the queue is confusing at best and,
+  // without that route check, would have been a real gap.
+  if (optedOut && updated) {
+    const touches = listTouches();
+    let changed = false;
+    for (const t of touches) {
+      if (t.accountId === accountId && t.status === 'pending_review') {
+        t.status = 'skipped';
+        changed = true;
+      }
+    }
+    if (changed) saveTouches(touches);
+  }
+  return updated;
 }
 
 // Shared by the manual "Mark Rebooked" action and the Calendly webhook
@@ -126,7 +144,7 @@ function rebookAccount(accountId, { amount = 0, source = 'manual', fromFunnel } 
   if (!account) return null;
   const motion = fromFunnel || account.funnel;
   const rebookedAt = [...(account.rebookedAt || []), { at: new Date().toISOString(), amount, fromFunnel: motion, motion: 'win_back', source }];
-  const updated = updateAccount(accountId, {
+  const patch = {
     funnel: 'none',
     stage: null,
     lastPurchaseDate: todayStrForStore(),
@@ -134,7 +152,19 @@ function rebookAccount(accountId, { amount = 0, source = 'manual', fromFunnel } 
     purchaseCount: (account.purchaseCount || 0) + 1,
     rebookedRevenue: (account.rebookedRevenue || 0) + amount,
     rebookedAt,
-  });
+  };
+  // A rebook must also close any still-open proposal — otherwise
+  // engine.js's hasOpenProposal precedence check (which deliberately
+  // overrides funnel state, per its own comment) keeps routing this
+  // account back into Proposal Follow-Up and drafts another touch for an
+  // account that already converted. There's no reliable way to tell DIY
+  // from full-service from a raw booking/rebook event alone, so this is
+  // recorded as 'full_service' — the more common shape for a booked call
+  // — flagged here as an approximation rather than silently guessed.
+  if (account.proposal && !account.proposal.outcome) {
+    patch.proposal = { ...account.proposal, outcome: 'full_service', amount };
+  }
+  const updated = updateAccount(accountId, patch);
   recordPurchase({ accountId, date: todayStrForStore(), amount, source: 'rebook' });
   logActivity('rebooked', accountId, `${account.name} rebooked${amount ? ` for $${amount}` : ''}${source === 'calendly_webhook' ? ' (auto — Calendly booking)' : ''}`, { amount, source });
   return updated;
@@ -222,6 +252,17 @@ function hasPendingCheckpoint(accountId, funnel, stage) {
   return readJson(FILES.checkpoints, []).some((c) => c.accountId === accountId && c.funnel === funnel && c.stage === stage && c.status === 'pending');
 }
 
+// A rejection must hold until the underlying account/stage data actually
+// changes — without this, the next engine tick sees no PENDING checkpoint
+// for this exact transition and immediately proposes the identical one
+// again, making "reject" mean "ask me again in a few minutes" instead of
+// "not now." An approved checkpoint doesn't need the same treatment: once
+// approved, a real touch exists (createTouch), so hasTouchForStage already
+// stops the engine from re-proposing that stage on its own.
+function hasRejectedCheckpoint(accountId, funnel, stage) {
+  return readJson(FILES.checkpoints, []).some((c) => c.accountId === accountId && c.funnel === funnel && c.stage === stage && c.status === 'rejected');
+}
+
 function getCheckpoint(id) {
   return readJson(FILES.checkpoints, []).find((c) => c.id === id) || null;
 }
@@ -288,6 +329,24 @@ function saveMonthlyReview(report) {
 function listMonthlyReviews(limit = 50) {
   const reviews = readJson(FILES.monthlyReviews, []);
   return reviews.slice(-limit).reverse();
+}
+
+// ---------- Calendly webhook delivery idempotency ----------
+// Webhooks are commonly delivered more than once for the same event (a
+// retry after a slow/failed response, or a genuine provider replay) — an
+// expected case, not a hypothetical one. Without tracking which invitee
+// events have already been processed, a replayed invitee.created would
+// call rebookAccount again on every delivery, inflating purchaseCount,
+// revenue, and the rebookedAt history each time.
+
+function hasProcessedCalendlyEvent(eventKey) {
+  return readJson(FILES.calendlyEvents, []).includes(eventKey);
+}
+
+function markCalendlyEventProcessed(eventKey) {
+  const events = readJson(FILES.calendlyEvents, []);
+  events.push(eventKey);
+  writeJson(FILES.calendlyEvents, events);
 }
 
 function validateSyncRecord(rec) {
@@ -642,6 +701,7 @@ module.exports = {
   setSetting,
   createCheckpoint,
   hasPendingCheckpoint,
+  hasRejectedCheckpoint,
   getCheckpoint,
   listCheckpoints,
   resolveCheckpoint,
@@ -650,6 +710,8 @@ module.exports = {
   DRAFT_FEEDBACK_CATEGORIES,
   saveMonthlyReview,
   listMonthlyReviews,
+  hasProcessedCalendlyEvent,
+  markCalendlyEventProcessed,
   listUsers,
   getUser,
 };

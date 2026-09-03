@@ -46,4 +46,15 @@ function extractAccountId(event) {
   return (tracking && tracking.utm_content) || null;
 }
 
-module.exports = { verifySignature, isInviteeCreated, extractAccountId };
+// Webhooks are commonly delivered more than once for the same booking —
+// a retry after a slow/failed response, or a genuine provider replay —
+// so this is an expected case to handle, not a hypothetical one. Calendly
+// gives each invitee a stable resource URI; that's the natural dedup key.
+// Falls back to the event's own top-level uri (present on some payload
+// shapes) if the invitee-level one is absent; returns null only when
+// neither exists, in which case the caller can't dedupe this one.
+function extractEventKey(event) {
+  return (event && event.payload && event.payload.uri) || (event && event.uri) || null;
+}
+
+module.exports = { verifySignature, isInviteeCreated, extractAccountId, extractEventKey };

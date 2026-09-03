@@ -14,6 +14,7 @@ const store = require('../src/store');
 const reviews = require('../src/reviews');
 const app = require('../src/server');
 const { startServer, stopServer } = require('./helpers/http');
+const { addDays, todayStr } = require('../src/dates');
 
 test.after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -105,6 +106,29 @@ test('generateMonthlyReview persists the report and a second run detects a real 
   const second = reviews.generateMonthlyReview();
   assert.equal(store.listMonthlyReviews(5).length, 2);
   assert.ok(Array.isArray(second.escalations));
+});
+
+test('Codex fix: two reviews generated in the SAME real month never manufacture a false two-month escalation from each other', () => {
+  // Force a genuinely below_kill reply rate (not the not_applicable case
+  // above) so there's something real for a same-month comparison to
+  // falsely escalate on if the bug were still present: one sent, unreplied
+  // touch in the last 30 days reads 0% — below the 5% kill threshold.
+  const uid = Math.random().toString(36).slice(2, 8);
+  const account = { id: `acct_review_${uid}`, name: `Review Org ${uid}`, ownerId: 'audrey', lastPurchaseDate: addDays(todayStr(), -200) };
+  store.syncAccounts([account]);
+  const touch = store.createTouch({ accountId: account.id, funnel: 'win_back', stage: 'soft_ask', subject: 'x', body: 'y', ownerId: 'audrey', kind: 'email', draftSource: 'template' });
+  store.updateTouch(touch.id, { status: 'sent', sentAt: new Date().toISOString() });
+
+  const first = reviews.generateMonthlyReview();
+  assert.equal(first.targets.replyRateLast30.status, 'below_kill', 'sanity: the fixture actually reads below_kill');
+
+  const second = reviews.generateMonthlyReview();
+  assert.equal(second.periodLabel, first.periodLabel, 'sanity: both calls land in the same real calendar month');
+  assert.equal(
+    second.escalations.some((e) => e.metric === 'replyRateLast30'),
+    false,
+    'comparing this review against one generated moments earlier in the SAME month must never count as "two months running"'
+  );
 });
 
 // ---------- HTTP: flag a draft, mark rollout, generate a review ----------
