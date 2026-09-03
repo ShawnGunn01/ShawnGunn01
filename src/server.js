@@ -4,6 +4,7 @@ const express = require('express');
 const store = require('./store');
 const engine = require('./engine');
 const dashboard = require('./dashboard');
+const access = require('./access');
 const { todayStr } = require('./dates');
 
 const app = express();
@@ -36,6 +37,16 @@ function requireSyncToken(req, res, next) {
   next();
 }
 
+// /api/engine/run has two legitimate kinds of caller: Make.com, calling it
+// back-to-back with the sync (Architecture v0.1 §3.3) — authenticated the
+// same way as the sync itself — and Shawn/Ira clicking "Run Cohort Engine"
+// on the dashboard, authenticated as an admin user. Either is accepted;
+// Audrey/Nick (viewer role) are not, matching the dashboard access rule.
+function requireSyncTokenOrAdmin(req, res, next) {
+  if (SYNC_TOKEN && req.get('X-Sync-Token') === SYNC_TOKEN) return next();
+  return access.requireRole('admin')(req, res, next);
+}
+
 app.post('/api/sync/accounts', requireSyncToken, (req, res) => {
   const records = Array.isArray(req.body) ? req.body : req.body?.accounts;
   if (!Array.isArray(records)) {
@@ -55,7 +66,7 @@ app.post('/api/sync/accounts', requireSyncToken, (req, res) => {
 });
 
 // Reviewable without opening Make.com — see the runbook.
-app.get('/api/sync/runs', (req, res) => {
+app.get('/api/sync/runs', access.requireUser, (req, res) => {
   res.json(store.listSyncRuns(Number(req.query.limit) || 50));
 });
 
@@ -63,7 +74,7 @@ app.get('/api/sync/runs', (req, res) => {
 // Call this on the same cadence as the Make.com sync (nightly + event-triggered).
 // It never sends anything — it only drafts touches into the owner review queue.
 
-app.post('/api/engine/run', (req, res) => {
+app.post('/api/engine/run', requireSyncTokenOrAdmin, (req, res) => {
   try {
     const result = engine.runEngineTick();
     res.json(result);
@@ -73,7 +84,7 @@ app.post('/api/engine/run', (req, res) => {
 });
 
 // Reviewable without opening Make.com — see the runbook.
-app.get('/api/engine/runs', (req, res) => {
+app.get('/api/engine/runs', access.requireUser, (req, res) => {
   res.json(store.listEngineRuns(Number(req.query.limit) || 50));
 });
 
@@ -81,7 +92,7 @@ app.get('/api/engine/runs', (req, res) => {
 // One row per generation ATTEMPT — including guardrail-blocked ones, not
 // just successfully queued touches. Filter to valid=false to see exactly
 // what the drafting engine has refused to queue, and why.
-app.get('/api/drafts/generations', (req, res) => {
+app.get('/api/drafts/generations', access.requireUser, (req, res) => {
   const filter = { limit: Number(req.query.limit) || 100 };
   if (req.query.accountId) filter.accountId = req.query.accountId;
   if (req.query.valid !== undefined) filter.valid = req.query.valid === 'true';
@@ -260,23 +271,35 @@ app.patch('/api/touches/:id', (req, res) => {
 // Loads data/sample-accounts.json — a stand-in for the first Make.com sync,
 // so the pilot can be demoed without a live Salesforce connection.
 
-app.post('/api/dev/seed', (req, res) => {
+app.post('/api/dev/seed', access.requireRole('admin'), (req, res) => {
   const samplePath = path.join(__dirname, '..', 'data', 'sample-accounts.json');
   const records = JSON.parse(fs.readFileSync(samplePath, 'utf8'));
   const result = store.syncAccounts(records);
   res.status(201).json(result);
 });
 
-// ---------- Dashboard ----------
+// ---------- Dashboard access ----------
+// See src/access.js for what this is (and isn't — no real auth yet).
 
-app.get('/api/dashboard', (req, res) => {
+app.get('/api/users', (req, res) => {
+  res.json(store.listUsers());
+});
+
+// ---------- Dashboard ----------
+// Read access: any recognized user (Audrey/Nick included — "read-only for
+// Audrey/Nick" means they can view this, just not trigger the admin
+// actions below). Unrecognized/missing X-User-Id is rejected, not treated
+// as public.
+
+app.get('/api/dashboard', access.requireUser, (req, res) => {
   res.json(dashboard.getDashboard());
 });
 
 // Manual for now — intended to be called on a schedule (Make.com or
 // equivalent) so Repeat-Purchase Rate YoY has stored history to compare
 // against once enough time has passed. See Metrics Spec gap #2.
-app.post('/api/dev/snapshot-metrics', (req, res) => {
+// Admin-only — "full access for Shawn and Ira" on dashboard data-management actions.
+app.post('/api/dev/snapshot-metrics', access.requireRole('admin'), (req, res) => {
   const d = dashboard.getDashboard();
   const periodEnd = todayStr();
   const periodStart = todayStr();

@@ -4,6 +4,7 @@
 // re-derive them.
 
 const store = require('./store');
+const thresholds = require('./thresholds');
 const { todayStr } = require('./dates');
 
 const SYNC_STALE_HOURS = 36; // Architecture v0.1 §4
@@ -105,6 +106,24 @@ function getDashboard() {
   const revenue = recoveredRevenueQTD();
   const activeAccounts = activeAccountsBreakdown(accounts);
   const staleHours = store.hoursSinceLastSync();
+  const funnel = cohortFunnel(accounts, touches);
+  const proposals = proposalOutcomes(accounts);
+  const repeatRate = repeatPurchaseRateYoY(accounts);
+  const replyRate = replyRateLast30(touches);
+
+  // Target/kill judgments — see src/thresholds.js and Metrics Spec v0.1.
+  // Kept as a distinct block in the response (not merged into the raw
+  // numbers above) so a client can always tell "the value" from "the
+  // opinion about the value."
+  const thresholdBlock = {
+    activeAccountsInCohort: thresholds.activeAccounts(activeAccounts.total),
+    repeatPurchaseRateYoY: thresholds.repeatPurchaseRateYoY(repeatRate),
+    replyRateLast30: thresholds.replyRate(replyRate),
+    recoveredRevenueQTD: thresholds.recoveredRevenue(revenue.total),
+    winBackConversion: thresholds.winBackConversion(funnel.rebooked, funnel.warmUpSent),
+    incentiveLift: thresholds.incentiveLift(funnel.passThrough.softAskReplyRate, funnel.passThrough.incentiveReplyRate),
+    proposalConversion: thresholds.proposalConversion(proposals),
+  };
 
   return {
     generatedAt: todayStr(),
@@ -112,12 +131,13 @@ function getDashboard() {
     hoursSinceLastSync: staleHours,
     activeAccountsInCohort: activeAccounts.total,
     activeAccountsBreakdown: activeAccounts,
-    repeatPurchaseRateYoY: repeatPurchaseRateYoY(accounts),
-    replyRateLast30: replyRateLast30(touches),
+    repeatPurchaseRateYoY: repeatRate,
+    replyRateLast30: replyRate,
     rebookedRevenueQTD: revenue.total,
     recoveredRevenueQTD: revenue,
-    cohortFunnel: cohortFunnel(accounts, touches),
-    proposalOutcomes: proposalOutcomes(accounts),
+    cohortFunnel: funnel,
+    proposalOutcomes: proposals,
+    thresholds: thresholdBlock,
     recentActivity: store.listActivity(25),
     pendingReviewCount: touches.filter((t) => t.status === 'pending_review').length,
     atRiskCount: accounts.filter((a) => a.stage === 'escalation').length,

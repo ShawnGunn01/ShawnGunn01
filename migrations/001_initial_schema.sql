@@ -158,12 +158,43 @@ create table engine_runs (
   started_at         timestamptz,
   touches_created    integer not null default 0,
   accounts_advanced  integer not null default 0,
+  drafts_blocked     integer not null default 0,  -- count of drafts the quality guardrails refused to queue
   status             text not null check (status in ('ok','error')),
   error_message      text
 );
 
+-- ---------- draft_generations ----------
+-- One row per draft-generation ATTEMPT (queued or blocked), for full
+-- prompt+output traceability — see src/guardrails.js and src/interpolate.js.
+
+create table draft_generations (
+  id            uuid primary key default gen_random_uuid(),
+  at            timestamptz not null default now(),
+  account_id    text references accounts(id),
+  stage         text not null,
+  prompt_input  jsonb not null default '{}',
+  raw_output    jsonb not null default '{}',
+  final_output  jsonb not null default '{}',
+  valid         boolean not null,
+  errors        jsonb not null default '[]'
+);
+
 create index sync_runs_at_idx on sync_runs(at desc);
 create index engine_runs_at_idx on engine_runs(at desc);
+create index draft_generations_account_id_idx on draft_generations(account_id);
+create index draft_generations_at_idx on draft_generations(at desc);
+
+-- ---------- users ----------
+-- Dashboard access control (Prompt 7). NOT real authentication — a
+-- pragmatic role gate appropriate to a 4-person internal pilot tool's
+-- threat model. See src/access.js and the runbook for why, and what
+-- replaces this (e.g. Supabase Auth) before this leaves pilot status.
+
+create table users (
+  id    text primary key,        -- matches the X-User-Id header value
+  name  text not null,
+  role  text not null check (role in ('admin','viewer'))
+);
 
 -- ---------- seed owners ----------
 -- Inserted without backup_for first, then cross-linked, since it's a
@@ -172,3 +203,11 @@ create index engine_runs_at_idx on engine_runs(at desc);
 insert into owners (id, name) values ('audrey', 'Audrey'), ('nick', 'Nick');
 update owners set backup_for = 'nick' where id = 'audrey';
 update owners set backup_for = 'audrey' where id = 'nick';
+
+-- ---------- seed users ----------
+
+insert into users (id, name, role) values
+  ('shawn', 'Shawn', 'admin'),
+  ('ira', 'Ira', 'admin'),
+  ('audrey', 'Audrey', 'viewer'),
+  ('nick', 'Nick', 'viewer');

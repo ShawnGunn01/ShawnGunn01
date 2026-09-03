@@ -15,37 +15,51 @@
       <button class="tab-btn" data-tab="accounts">Accounts</button>
       <button class="tab-btn" data-tab="owners">Owners</button>
     </nav>
+    <div class="user-switcher">
+      <label for="user-select">Signed in as</label>
+      <select id="user-select"></select>
+      <span class="badge" id="role-badge"></span>
+    </div>
   </header>
 
   <main>
     <section id="tab-dashboard" class="tab-panel active">
       <div id="sync-banner" class="sync-banner" hidden></div>
-      <div class="panel-toolbar">
+
+      <!-- Admin-only: Shawn/Ira full access, hidden entirely for Audrey/Nick (viewer role) -->
+      <div class="panel-toolbar admin-only" hidden>
         <button id="btn-run-engine">Run Cohort Engine</button>
         <button class="secondary" id="btn-seed">Load Sample Accounts</button>
+        <button class="secondary" id="btn-snapshot">Snapshot Metrics</button>
         <span class="hint" id="engine-result"></span>
       </div>
-      <div class="stat-grid" id="stat-grid"></div>
+      <div class="hint viewer-only" hidden>Viewing read-only. Cohort engine runs and sample-data actions are limited to Shawn and Ira.</div>
 
-      <div class="card">
-        <h3>Sync &amp; Engine Health <span class="card-meta">reviewable without opening Make.com</span></h3>
-        <div id="run-health"></div>
-      </div>
+      <!-- Top row: the 4 validated KPI tiles, each with its target/kill reference where one exists -->
+      <div class="kpi-grid" id="kpi-grid"></div>
 
-      <div class="two-col">
+      <div class="two-col dashboard-main">
         <div class="card">
           <h3>Cohort Funnel — Win-Back</h3>
           <div id="cohort-funnel"></div>
+          <div class="threshold-block" id="funnel-thresholds"></div>
         </div>
-        <div class="card">
-          <h3>Proposal Outcomes</h3>
-          <div id="proposal-outcomes"></div>
+        <div class="dashboard-right">
+          <div class="card">
+            <h3>Recent Activity</h3>
+            <div id="activity-feed"></div>
+          </div>
+          <div class="card">
+            <h3>Proposal Outcomes <span class="card-meta">Full-Service vs. DIY</span></h3>
+            <div id="proposal-outcomes"></div>
+            <div class="threshold-block" id="proposal-thresholds"></div>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <h3>Recent Activity</h3>
-        <div id="activity-feed"></div>
+      <div class="card secondary-card">
+        <h3>Sync &amp; Engine Health <span class="card-meta">reviewable without opening Make.com</span></h3>
+        <div id="run-health"></div>
       </div>
     </section>
 

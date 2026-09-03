@@ -14,7 +14,20 @@ const FILES = {
   engineRuns: path.join(DATA_DIR, 'engine_runs.json'),
   metricsSnapshots: path.join(DATA_DIR, 'metrics_snapshots.json'),
   draftGenerations: path.join(DATA_DIR, 'draft_generations.json'),
+  users: path.join(DATA_DIR, 'users.json'),
 };
+
+// Dashboard access control (see Dashboard Access doc). Distinct from
+// `owners` above — owners is about account ASSIGNMENT for the cohort
+// engine; users is about system ACCESS. Audrey and Nick are both an owner
+// AND a user; Shawn and Ira are users only (they don't get accounts
+// assigned to them for outreach).
+const DEFAULT_USERS = [
+  { id: 'shawn', name: 'Shawn', role: 'admin' },
+  { id: 'ira', name: 'Ira', role: 'admin' },
+  { id: 'audrey', name: 'Audrey', role: 'viewer' },
+  { id: 'nick', name: 'Nick', role: 'viewer' },
+];
 
 // Fields a synced record must carry a real (non-empty) value for. Anything
 // missing one of these gets routed to the sync's `skipped` list instead of
@@ -344,6 +357,16 @@ function listEngineRuns(limit = 50) {
   return runs.slice(-limit).reverse();
 }
 
+// ---------- Users (dashboard access control) ----------
+
+function listUsers() {
+  return readJson(FILES.users, DEFAULT_USERS);
+}
+
+function getUser(id) {
+  return listUsers().find((u) => u.id === id) || null;
+}
+
 // ---------- Draft generations (full prompt + output, every attempt) ----------
 // "Log the full prompt and output for every draft for traceability."
 // One row per generation ATTEMPT — including ones the guardrails blocked —
@@ -407,4 +430,6 @@ module.exports = {
   listEngineRuns,
   logDraftGeneration,
   listDraftGenerations,
+  listUsers,
+  getUser,
 };
