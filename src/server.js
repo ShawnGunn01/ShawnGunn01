@@ -480,6 +480,47 @@ app.post('/api/webhooks/calendly', (req, res) => {
   res.status(200).json({ rebooked: true, accountId: updated.id });
 });
 
+// ---------- Pilot checkpoint mode (Prompt 9 Item 3) ----------
+// While on, the engine proposes each stage transition as a pending
+// checkpoint instead of drafting it automatically — "nothing auto-
+// progresses without a human check" during the observation window. Off is
+// the default and matches every prior prompt's already-tested behavior.
+
+app.get('/api/settings', access.requireUser, (req, res) => {
+  res.json({ checkpointMode: store.getSetting('checkpointMode', false) });
+});
+
+app.post('/api/settings/checkpoint-mode', access.requireRole('admin'), (req, res) => {
+  const enabled = !!req.body?.enabled;
+  store.setSetting('checkpointMode', enabled);
+  store.logActivity('checkpoint_mode_changed', null, `Checkpoint mode turned ${enabled ? 'ON' : 'OFF'} by ${req.user.name}`);
+  res.json({ checkpointMode: enabled });
+});
+
+app.get('/api/checkpoints', access.requireUser, (req, res) => {
+  const checkpoints = store.listCheckpoints({ status: req.query.status, limit: Number(req.query.limit) || 200 });
+  const accountsById = new Map(store.listAccounts().map((a) => [a.id, a]));
+  res.json(checkpoints.map((c) => ({ ...c, account: accountsById.get(c.accountId) || null })));
+});
+
+app.post('/api/checkpoints/:id/approve', access.requireRole('admin'), (req, res) => {
+  try {
+    const result = engine.approveCheckpoint(req.params.id, req.user.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/checkpoints/:id/reject', access.requireRole('admin'), (req, res) => {
+  try {
+    engine.rejectCheckpoint(req.params.id, req.user.id, req.body?.reason);
+    res.json({ rejected: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ---------- Dev convenience ----------
 // Loads data/sample-accounts.json — a stand-in for the first Make.com sync,
 // so the pilot can be demoed without a live Salesforce connection.

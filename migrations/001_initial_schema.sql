@@ -223,6 +223,35 @@ create table sends (
   at                timestamptz not null default now()
 );
 
+-- ---------- settings (Prompt 9 — pilot checkpoint mode) ----------
+-- A generic key-value store rather than a single hardcoded column, since
+-- a pilot process tends to grow more than one manual toggle over time.
+
+create table settings (
+  key   text primary key,
+  value jsonb not null
+);
+
+-- ---------- checkpoints (Prompt 9 Item 3 — manual gate during the pilot's
+-- observation window) ----------
+-- While settings['checkpointMode'] is true, the engine proposes a stage
+-- transition here instead of drafting it directly.
+
+create table checkpoints (
+  id          uuid primary key default gen_random_uuid(),
+  account_id  text not null references accounts(id),
+  funnel      text not null check (funnel in ('win_back','proposal_follow_up','nurture')),
+  stage       text not null,
+  status      text not null default 'pending' check (status in ('pending','approved','rejected')),
+  created_at  timestamptz not null default now(),
+  decided_by  text references users(id),
+  decided_at  timestamptz,
+  reason      text
+);
+
+create index checkpoints_status_idx on checkpoints(status);
+create index checkpoints_account_idx on checkpoints(account_id);
+
 create index sends_account_idx on sends(account_id);
 create index sends_at_idx on sends(at desc);
 

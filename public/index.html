@@ -31,9 +31,18 @@
         <button id="btn-run-engine">Run Cohort Engine</button>
         <button class="secondary" id="btn-seed">Load Sample Accounts</button>
         <button class="secondary" id="btn-snapshot">Snapshot Metrics</button>
+        <label class="hint" style="display:flex;align-items:center;gap:6px;margin-left:12px">
+          <input type="checkbox" id="checkpoint-mode-toggle" />
+          Checkpoint mode (pilot observation window — hold every stage transition for approval)
+        </label>
         <span class="hint" id="engine-result"></span>
       </div>
       <div class="hint viewer-only" hidden>Viewing read-only. Cohort engine runs and sample-data actions are limited to Shawn and Ira.</div>
+
+      <div class="card admin-only" id="checkpoints-card" hidden>
+        <h3>Pending Checkpoints <span class="card-meta">stage transitions awaiting manual approval</span></h3>
+        <div id="checkpoints-list"></div>
+      </div>
 
       <!-- Top row: the 4 validated KPI tiles, each with its target/kill reference where one exists -->
       <div class="kpi-grid" id="kpi-grid"></div>

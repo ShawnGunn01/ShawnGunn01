@@ -1,4 +1,4 @@
-# Drafting Engine Eval — 2026-09-03T01:02:01.828Z
+# Drafting Engine Eval — 2026-09-03T02:57:35.915Z
 
 19 cases · 18 queued · 1 blocked · adversarial case correctly blocked: true
 
@@ -44,7 +44,7 @@ Hi Renee Ibarra,
 
 It's been a little while since we last worked together at Harborview Foundation, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.
 
-If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good
+If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e1
 
 Warmly,
 Audrey
@@ -62,7 +62,7 @@ Hi Marcus Bell,
 
 Your event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.
 
-Grab a time here if that's easiest: https://calendly.com/nick-impact4good
+Grab a time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e2
 
 Best,
 Nick
@@ -80,7 +80,7 @@ Hi Dana Feldman,
 
 I know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.
 
-Book here: https://calendly.com/audrey-impact4good
+Book here: https://calendly.com/audrey-impact4good?utm_content=e3
 
 Best,
 Audrey
@@ -109,7 +109,7 @@ Hi there,
 
 It's been a little while since we last worked together at Maple & Vine Community Kitchen, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.
 
-If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good
+If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e5
 
 Warmly,
 Audrey
@@ -127,7 +127,7 @@ Hi Priya Shah,
 
 Your event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.
 
-Grab a time here if that's easiest: https://calendly.com/nick-impact4good
+Grab a time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e6
 
 Best,
 Nick
@@ -145,7 +145,7 @@ Hi Tomas Vidal,
 
 I know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.
 
-Book here: https://calendly.com/audrey-impact4good
+Book here: https://calendly.com/audrey-impact4good?utm_content=e7
 
 Best,
 Audrey
@@ -174,7 +174,7 @@ Hi Grace Kim,
 
 Just wanted to check in on the proposal we sent — happy to answer any questions or make changes.
 
-Easiest way to talk it through: https://calendly.com/audrey-impact4good
+Easiest way to talk it through: https://calendly.com/audrey-impact4good?utm_content=e9
 
 Best,
 Audrey
@@ -192,7 +192,7 @@ Hi Ben Torres,
 
 No pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.
 
-Happy to walk through either option: https://calendly.com/nick-impact4good
+Happy to walk through either option: https://calendly.com/nick-impact4good?utm_content=e10
 
 Best,
 Nick
@@ -210,7 +210,7 @@ Hi Ava Chen,
 
 Your event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.
 
-Grab time here if that's easiest: https://calendly.com/audrey-impact4good
+Grab time here if that's easiest: https://calendly.com/audrey-impact4good?utm_content=e11
 
 Best,
 Audrey
@@ -228,7 +228,7 @@ Hi there,
 
 Just wanted to check in on the proposal we sent — happy to answer any questions or make changes.
 
-Easiest way to talk it through: https://calendly.com/nick-impact4good
+Easiest way to talk it through: https://calendly.com/nick-impact4good?utm_content=e12
 
 Best,
 Nick
@@ -246,7 +246,7 @@ Hi Lena Ford,
 
 No news to report — just staying in touch. Let us know if there's ever anything we can help with.
 
-Always happy to find time: https://calendly.com/audrey-impact4good
+Always happy to find time: https://calendly.com/audrey-impact4good?utm_content=e13
 
 Best,
 Audrey
@@ -264,7 +264,7 @@ Hi there,
 
 No news to report — just staying in touch. Let us know if there's ever anything we can help with.
 
-Always happy to find time: https://calendly.com/nick-impact4good
+Always happy to find time: https://calendly.com/nick-impact4good?utm_content=e14
 
 Best,
 Nick
@@ -282,7 +282,7 @@ Hi Sofia Reyes,
 
 It's been a little while since we last worked together at Crescent Moon Wellness, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.
 
-If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good
+If it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e15
 
 Warmly,
 Audrey
@@ -300,7 +300,7 @@ Hi Marcus Webb,
 
 I know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.
 
-Book here: https://calendly.com/nick-impact4good
+Book here: https://calendly.com/nick-impact4good?utm_content=e16
 
 Best,
 Nick
@@ -318,7 +318,7 @@ Hi Nadia Petrov,
 
 No pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.
 
-Happy to walk through either option: https://calendly.com/audrey-impact4good
+Happy to walk through either option: https://calendly.com/audrey-impact4good?utm_content=e17
 
 Best,
 Audrey
@@ -336,7 +336,7 @@ Hi Owen Clarke,
 
 Your event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.
 
-Grab time here if that's easiest: https://calendly.com/nick-impact4good
+Grab time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e18
 
 Best,
 Nick

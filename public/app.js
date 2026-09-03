@@ -137,6 +137,7 @@ function kpiTile(label, valueDisplay, thresholdData) {
 }
 
 async function loadDashboard() {
+  loadCheckpoints();
   const res = await apiFetch('/api/dashboard');
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -239,6 +240,72 @@ document.getElementById('btn-snapshot').addEventListener('click', async () => {
   await apiFetch('/api/dev/snapshot-metrics', { method: 'POST' });
   document.getElementById('engine-result').textContent = 'Metrics snapshot recorded.';
 });
+
+// ---------- pilot checkpoint mode (Prompt 9 Item 3) ----------
+
+document.getElementById('checkpoint-mode-toggle').addEventListener('change', async (e) => {
+  await apiFetch('/api/settings/checkpoint-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: e.target.checked }),
+  });
+  loadCheckpoints();
+});
+
+async function loadCheckpoints() {
+  const user = currentUser();
+  if (!user || user.role !== 'admin') return;
+
+  const settings = await apiFetch('/api/settings').then((r) => r.json());
+  document.getElementById('checkpoint-mode-toggle').checked = settings.checkpointMode;
+
+  const pending = await apiFetch('/api/checkpoints?status=pending').then((r) => r.json());
+  const card = document.getElementById('checkpoints-card');
+  const list = document.getElementById('checkpoints-list');
+
+  if (!settings.checkpointMode && pending.length === 0) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  list.innerHTML = pending.length
+    ? pending
+        .map(
+          (c) => `<div class="card-row" style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <strong>${escapeHtml(c.account ? c.account.name : c.accountId)}</strong>
+              <span class="card-meta">${labelize(c.funnel)} · ${labelize(c.stage)} · proposed ${timeAgo(c.createdAt)}</span>
+            </div>
+            <div class="actions">
+              <button data-approve-checkpoint="${c.id}">Approve</button>
+              <button class="secondary" data-reject-checkpoint="${c.id}">Reject</button>
+            </div>
+          </div>`
+        )
+        .join('')
+    : '<div class="card-meta">Nothing awaiting approval right now.</div>';
+
+  list.querySelectorAll('[data-approve-checkpoint]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await apiFetch(`/api/checkpoints/${btn.dataset.approveCheckpoint}/approve`, { method: 'POST' });
+      loadCheckpoints();
+      loadDashboard();
+    });
+  });
+  list.querySelectorAll('[data-reject-checkpoint]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const reason = prompt('Reason for rejecting this transition (logged):', '');
+      if (reason === null) return;
+      await apiFetch(`/api/checkpoints/${btn.dataset.rejectCheckpoint}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      loadCheckpoints();
+    });
+  });
+}
 
 // ---------- review queue (per-owner; Prompt 8) ----------
 // Default: a viewer's queue is scoped to their OWN drafts server-side

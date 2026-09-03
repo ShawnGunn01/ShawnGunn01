@@ -15,7 +15,7 @@
     },
     "guardrailErrors": [],
     "subject": "Thinking of you, Renee Ibarra",
-    "body": "Hi Renee Ibarra,\n\nIt's been a little while since we last worked together at Harborview Foundation, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e1"
+    "body": "Hi Renee Ibarra,\n\nIt's been a little while since we last worked together at Harborview Foundation, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e1\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e1"
   },
   {
     "label": "Soft Ask · has contact name",
@@ -33,7 +33,7 @@
     },
     "guardrailErrors": [],
     "subject": "Ready to plan your next event, Marcus Bell?",
-    "body": "Hi Marcus Bell,\n\nYour event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.\n\nGrab a time here if that's easiest: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e2"
+    "body": "Hi Marcus Bell,\n\nYour event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.\n\nGrab a time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e2\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e2"
   },
   {
     "label": "Incentive · has contact name",
@@ -51,7 +51,7 @@
     },
     "guardrailErrors": [],
     "subject": "A little something to welcome you back",
-    "body": "Hi Dana Feldman,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e3"
+    "body": "Hi Dana Feldman,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/audrey-impact4good?utm_content=e3\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e3"
   },
   {
     "label": "Escalation · has contact email",
@@ -87,7 +87,7 @@
     },
     "guardrailErrors": [],
     "subject": "Thinking of you, Maple & Vine Community Kitchen",
-    "body": "Hi there,\n\nIt's been a little while since we last worked together at Maple & Vine Community Kitchen, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e5"
+    "body": "Hi there,\n\nIt's been a little while since we last worked together at Maple & Vine Community Kitchen, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e5\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e5"
   },
   {
     "label": "Soft Ask · NO contact email",
@@ -105,7 +105,7 @@
     },
     "guardrailErrors": [],
     "subject": "Ready to plan your next event, Priya Shah?",
-    "body": "Hi Priya Shah,\n\nYour event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.\n\nGrab a time here if that's easiest: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e6"
+    "body": "Hi Priya Shah,\n\nYour event date is coming up again and I wanted to check in — would you like to get something on the calendar? Happy to pick up right where we left off.\n\nGrab a time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e6\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e6"
   },
   {
     "label": "Incentive · high-value account",
@@ -123,7 +123,7 @@
     },
     "guardrailErrors": [],
     "subject": "A little something to welcome you back",
-    "body": "Hi Tomas Vidal,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e7"
+    "body": "Hi Tomas Vidal,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/audrey-impact4good?utm_content=e7\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e7"
   },
   {
     "label": "Escalation · NO contact email",
@@ -159,7 +159,7 @@
     },
     "guardrailErrors": [],
     "subject": "Checking in on your proposal",
-    "body": "Hi Grace Kim,\n\nJust wanted to check in on the proposal we sent — happy to answer any questions or make changes.\n\nEasiest way to talk it through: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e9"
+    "body": "Hi Grace Kim,\n\nJust wanted to check in on the proposal we sent — happy to answer any questions or make changes.\n\nEasiest way to talk it through: https://calendly.com/audrey-impact4good?utm_content=e9\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e9"
   },
   {
     "label": "Proposal DIY Fallback",
@@ -177,7 +177,7 @@
     },
     "guardrailErrors": [],
     "subject": "A lower-lift option, if that's more your speed",
-    "body": "Hi Ben Torres,\n\nNo pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.\n\nHappy to walk through either option: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e10"
+    "body": "Hi Ben Torres,\n\nNo pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.\n\nHappy to walk through either option: https://calendly.com/nick-impact4good?utm_content=e10\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e10"
   },
   {
     "label": "Proposal Final Anchor",
@@ -195,7 +195,7 @@
     },
     "guardrailErrors": [],
     "subject": "Your event date is coming up",
-    "body": "Hi Ava Chen,\n\nYour event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.\n\nGrab time here if that's easiest: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e11"
+    "body": "Hi Ava Chen,\n\nYour event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.\n\nGrab time here if that's easiest: https://calendly.com/audrey-impact4good?utm_content=e11\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e11"
   },
   {
     "label": "Proposal Check-In · NO contact name",
@@ -213,7 +213,7 @@
     },
     "guardrailErrors": [],
     "subject": "Checking in on your proposal",
-    "body": "Hi there,\n\nJust wanted to check in on the proposal we sent — happy to answer any questions or make changes.\n\nEasiest way to talk it through: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e12"
+    "body": "Hi there,\n\nJust wanted to check in on the proposal we sent — happy to answer any questions or make changes.\n\nEasiest way to talk it through: https://calendly.com/nick-impact4good?utm_content=e12\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e12"
   },
   {
     "label": "Nurture · has contact name",
@@ -231,7 +231,7 @@
     },
     "guardrailErrors": [],
     "subject": "Checking in from Impact4Good",
-    "body": "Hi Lena Ford,\n\nNo news to report — just staying in touch. Let us know if there's ever anything we can help with.\n\nAlways happy to find time: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e13"
+    "body": "Hi Lena Ford,\n\nNo news to report — just staying in touch. Let us know if there's ever anything we can help with.\n\nAlways happy to find time: https://calendly.com/audrey-impact4good?utm_content=e13\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e13"
   },
   {
     "label": "Nurture · NO contact name",
@@ -249,7 +249,7 @@
     },
     "guardrailErrors": [],
     "subject": "Checking in from Impact4Good",
-    "body": "Hi there,\n\nNo news to report — just staying in touch. Let us know if there's ever anything we can help with.\n\nAlways happy to find time: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e14"
+    "body": "Hi there,\n\nNo news to report — just staying in touch. Let us know if there's ever anything we can help with.\n\nAlways happy to find time: https://calendly.com/nick-impact4good?utm_content=e14\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e14"
   },
   {
     "label": "Warm-Up · second owner/account pair",
@@ -267,7 +267,7 @@
     },
     "guardrailErrors": [],
     "subject": "Thinking of you, Sofia Reyes",
-    "body": "Hi Sofia Reyes,\n\nIt's been a little while since we last worked together at Crescent Moon Wellness, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e15"
+    "body": "Hi Sofia Reyes,\n\nIt's been a little while since we last worked together at Crescent Moon Wellness, and your event anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love to help again whenever the timing is right.\n\nIf it's ever useful, here's where to find time: https://calendly.com/audrey-impact4good?utm_content=e15\n\nWarmly,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e15"
   },
   {
     "label": "Incentive · second owner/account pair",
@@ -285,7 +285,7 @@
     },
     "guardrailErrors": [],
     "subject": "A little something to welcome you back",
-    "body": "Hi Marcus Webb,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e16"
+    "body": "Hi Marcus Webb,\n\nI know things get busy — if it's helpful, we'd love to offer 5% off to make it easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\nBook here: https://calendly.com/nick-impact4good?utm_content=e16\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e16"
   },
   {
     "label": "Proposal DIY Fallback · second pair",
@@ -303,7 +303,7 @@
     },
     "guardrailErrors": [],
     "subject": "A lower-lift option, if that's more your speed",
-    "body": "Hi Nadia Petrov,\n\nNo pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.\n\nHappy to walk through either option: https://calendly.com/audrey-impact4good\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e17"
+    "body": "Hi Nadia Petrov,\n\nNo pressure on the full-service proposal — if a lighter-touch option works better for now, we also offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on our end. Either path works for us, just let me know what fits.\n\nHappy to walk through either option: https://calendly.com/audrey-impact4good?utm_content=e17\n\nBest,\nAudrey\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e17"
   },
   {
     "label": "Proposal Final Anchor · second pair",
@@ -321,7 +321,7 @@
     },
     "guardrailErrors": [],
     "subject": "Your event date is coming up",
-    "body": "Hi Owen Clarke,\n\nYour event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.\n\nGrab time here if that's easiest: https://calendly.com/nick-impact4good\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e18"
+    "body": "Hi Owen Clarke,\n\nYour event date is getting close, so I wanted to make sure we didn't lose the window if you'd like to move forward — full-service or DIY, whichever fits best right now.\n\nGrab time here if that's easiest: https://calendly.com/nick-impact4good?utm_content=e18\n\nBest,\nNick\n\n---\nDon't want these emails? Opt out any time: http://localhost:3000/api/unsubscribe/e18"
   },
   {
     "label": "ADVERSARIAL · owner has no Calendly link configured (must be blocked)",

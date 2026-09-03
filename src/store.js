@@ -16,6 +16,8 @@ const FILES = {
   draftGenerations: path.join(DATA_DIR, 'draft_generations.json'),
   users: path.join(DATA_DIR, 'users.json'),
   sends: path.join(DATA_DIR, 'sends.json'),
+  settings: path.join(DATA_DIR, 'settings.json'),
+  checkpoints: path.join(DATA_DIR, 'checkpoints.json'),
 };
 
 // Dashboard access control (see Dashboard Access doc). Distinct from
@@ -170,6 +172,71 @@ function logSend({ touchId, accountId, ownerId, sentBy, wasEdited, gmailMessageI
 function listSends(limit = 100) {
   const sends = readJson(FILES.sends, []);
   return sends.slice(-limit).reverse();
+}
+
+// ---------- Settings (a tiny key-value store — Prompt 9 checkpoint mode) ----------
+// Deliberately generic rather than a single hardcoded `checkpointMode`
+// field, since a pilot process tends to grow more than one manual toggle
+// over time and this avoids a schema change for the next one.
+
+function getSetting(key, defaultValue) {
+  const settings = readJson(FILES.settings, {});
+  return key in settings ? settings[key] : defaultValue;
+}
+
+function setSetting(key, value) {
+  const settings = readJson(FILES.settings, {});
+  settings[key] = value;
+  writeJson(FILES.settings, settings);
+  return settings[key];
+}
+
+// ---------- Checkpoints (Prompt 9 Item 3 — manual gate during the pilot's
+// observation window) ----------
+// While settings.checkpointMode is on, the engine proposes a stage
+// transition here instead of drafting it directly — see engine.js
+// proposeOrDraft(). Nothing here decides policy; this is just the record
+// of what's pending and how it was decided.
+
+function createCheckpoint({ accountId, funnel, stage }) {
+  const checkpoints = readJson(FILES.checkpoints, []);
+  const checkpoint = {
+    id: genId('chk'),
+    accountId,
+    funnel,
+    stage,
+    status: 'pending', // pending | approved | rejected
+    createdAt: new Date().toISOString(),
+    decidedBy: null,
+    decidedAt: null,
+    reason: null,
+  };
+  checkpoints.push(checkpoint);
+  writeJson(FILES.checkpoints, checkpoints);
+  return checkpoint;
+}
+
+function hasPendingCheckpoint(accountId, funnel, stage) {
+  return readJson(FILES.checkpoints, []).some((c) => c.accountId === accountId && c.funnel === funnel && c.stage === stage && c.status === 'pending');
+}
+
+function getCheckpoint(id) {
+  return readJson(FILES.checkpoints, []).find((c) => c.id === id) || null;
+}
+
+function listCheckpoints({ status, limit = 200 } = {}) {
+  let checkpoints = readJson(FILES.checkpoints, []);
+  if (status) checkpoints = checkpoints.filter((c) => c.status === status);
+  return checkpoints.slice(-limit).reverse();
+}
+
+function resolveCheckpoint(id, { status, decidedBy, reason }) {
+  const checkpoints = readJson(FILES.checkpoints, []);
+  const checkpoint = checkpoints.find((c) => c.id === id);
+  if (!checkpoint) return null;
+  Object.assign(checkpoint, { status, decidedBy, decidedAt: new Date().toISOString(), reason: reason || null });
+  writeJson(FILES.checkpoints, checkpoints);
+  return checkpoint;
 }
 
 function validateSyncRecord(rec) {
@@ -520,6 +587,13 @@ module.exports = {
   listDraftGenerations,
   logSend,
   listSends,
+  getSetting,
+  setSetting,
+  createCheckpoint,
+  hasPendingCheckpoint,
+  getCheckpoint,
+  listCheckpoints,
+  resolveCheckpoint,
   listUsers,
   getUser,
 };

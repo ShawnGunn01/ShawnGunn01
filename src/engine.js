@@ -98,6 +98,81 @@ function generateAndQueueDraft({ rawDraftFn, funnel, stage, account, allAccounts
   return { queued: true, touch };
 }
 
+// Pilot observation-window gate (Prompt 9 Item 3): while
+// settings.checkpointMode is on, a stage transition that would otherwise
+// draft-and-advance immediately instead gets logged as a pending
+// checkpoint, and nothing else happens until an admin approves or rejects
+// it (server.js POST /api/checkpoints/:id/approve|reject, which calls
+// approveCheckpoint/rejectCheckpoint below). With checkpointMode off (the
+// default, and the only mode that existed before this prompt) this is a
+// pure pass-through — behavior is unchanged from Prompts 5-8.
+function checkpointModeOn() {
+  return store.getSetting('checkpointMode', false);
+}
+
+function proposeOrDraft({ funnel, stage, account, allAccounts, counts, rawDraftFn, promptInput, onQueued }) {
+  if (checkpointModeOn()) {
+    if (!store.hasPendingCheckpoint(account.id, funnel, stage)) {
+      store.createCheckpoint({ accountId: account.id, funnel, stage });
+      store.logActivity('checkpoint_pending', account.id, `${labelize(stage)} for ${account.name} is awaiting manual checkpoint approval (pilot observation window).`);
+    }
+    return;
+  }
+
+  const result = generateAndQueueDraft({ rawDraftFn, funnel, stage, account, allAccounts, promptInput });
+  if (result.queued) {
+    onQueued();
+    counts.touchesCreated += 1;
+  } else {
+    counts.draftsBlocked += 1;
+  }
+}
+
+// Runs the actual draft-and-advance for one approved checkpoint. Shared
+// with the normal (non-checkpoint) path via the same generateAndQueueDraft
+// gate — a checkpoint approval is never a shortcut around the drafting
+// engine's own quality guardrails, only around the automatic-stage-advance
+// decision.
+function draftForApprovedCheckpoint(checkpoint) {
+  const account = store.getAccount(checkpoint.accountId);
+  if (!account) throw new Error('Account not found');
+  const allAccounts = store.listAccounts();
+
+  const rawDraftFn =
+    checkpoint.funnel === 'win_back'
+      ? () => drafts.draftWinBack(checkpoint.stage, account)
+      : checkpoint.funnel === 'proposal_follow_up'
+      ? () => drafts.draftProposalFollowUp(checkpoint.stage, account)
+      : () => drafts.draftNurture(account);
+  const promptInput = { name: account.name, contactName: account.contactName, ownerId: account.ownerId, proposal: account.proposal, eventAnniversaryDate: account.eventAnniversaryDate };
+
+  const result = generateAndQueueDraft({ rawDraftFn, funnel: checkpoint.funnel, stage: checkpoint.stage, account, allAccounts, promptInput });
+  if (result.queued) {
+    store.updateAccount(account.id, { stage: checkpoint.stage, stageEnteredDate: todayStr() });
+    store.logActivity('touch_drafted', account.id, `${labelize(checkpoint.stage)} drafted for ${account.name} (checkpoint approved)`);
+  }
+  return result;
+}
+
+function approveCheckpoint(checkpointId, decidedBy) {
+  const checkpoint = store.getCheckpoint(checkpointId);
+  if (!checkpoint) throw new Error('Checkpoint not found');
+  if (checkpoint.status !== 'pending') throw new Error(`Checkpoint is already ${checkpoint.status}`);
+
+  const result = draftForApprovedCheckpoint(checkpoint);
+  store.resolveCheckpoint(checkpointId, { status: 'approved', decidedBy });
+  return result;
+}
+
+function rejectCheckpoint(checkpointId, decidedBy, reason) {
+  const checkpoint = store.getCheckpoint(checkpointId);
+  if (!checkpoint) throw new Error('Checkpoint not found');
+  if (checkpoint.status !== 'pending') throw new Error(`Checkpoint is already ${checkpoint.status}`);
+
+  store.resolveCheckpoint(checkpointId, { status: 'rejected', decidedBy, reason });
+  store.logActivity('checkpoint_rejected', checkpoint.accountId, `${labelize(checkpoint.stage)} checkpoint rejected by ${decidedBy}${reason ? `: ${reason}` : ''}`);
+}
+
 function advanceWinBack(account, counts, allAccounts) {
   const target = targetWinBackStage(account);
 
@@ -106,23 +181,20 @@ function advanceWinBack(account, counts, allAccounts) {
     const stoodDown = gatingPriorStage && priorStageWasReplied(account.id, 'win_back', gatingPriorStage);
 
     if (!stoodDown) {
-      const result = generateAndQueueDraft({
-        rawDraftFn: () => drafts.draftWinBack(target, account),
+      proposeOrDraft({
         funnel: 'win_back',
         stage: target,
         account,
         allAccounts,
+        counts,
+        rawDraftFn: () => drafts.draftWinBack(target, account),
         promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId, eventAnniversaryDate: account.eventAnniversaryDate },
+        onQueued: () => {
+          store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
+          store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
+          counts.accountsAdvanced += 1;
+        },
       });
-
-      if (result.queued) {
-        store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
-        store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
-        counts.touchesCreated += 1;
-        counts.accountsAdvanced += 1;
-      } else {
-        counts.draftsBlocked += 1;
-      }
     }
   }
 
@@ -145,21 +217,16 @@ function maybeNurtureTouch(account, counts, allAccounts) {
   const recent = touches.some((t) => daysSince(t.createdAt.slice(0, 10)) < NURTURE_INTERVAL_DAYS);
   if (recent) return;
 
-  const result = generateAndQueueDraft({
-    rawDraftFn: () => drafts.draftNurture(account),
+  proposeOrDraft({
     funnel: 'nurture',
     stage: 'nurture',
     account,
     allAccounts,
+    counts,
+    rawDraftFn: () => drafts.draftNurture(account),
     promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId },
+    onQueued: () => store.logActivity('touch_drafted', account.id, `Nurture check-in drafted for ${account.name}`),
   });
-
-  if (result.queued) {
-    store.logActivity('touch_drafted', account.id, `Nurture check-in drafted for ${account.name}`);
-    counts.touchesCreated += 1;
-  } else {
-    counts.draftsBlocked += 1;
-  }
 }
 
 function targetProposalStage(account) {
@@ -181,23 +248,20 @@ function advanceProposalFollowUp(account, counts, allAccounts) {
   if (target && target !== account.stage && !store.hasTouchForStage(account.id, 'proposal_follow_up', target)) {
     const stoodDown = target === 'diy_fallback' && priorStageWasReplied(account.id, 'proposal_follow_up', 'check_in');
     if (!stoodDown) {
-      const result = generateAndQueueDraft({
-        rawDraftFn: () => drafts.draftProposalFollowUp(target, account),
+      proposeOrDraft({
         funnel: 'proposal_follow_up',
         stage: target,
         account,
         allAccounts,
+        counts,
+        rawDraftFn: () => drafts.draftProposalFollowUp(target, account),
         promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId, proposal: account.proposal },
+        onQueued: () => {
+          store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
+          store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
+          counts.accountsAdvanced += 1;
+        },
       });
-
-      if (result.queued) {
-        store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
-        store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
-        counts.touchesCreated += 1;
-        counts.accountsAdvanced += 1;
-      } else {
-        counts.draftsBlocked += 1;
-      }
     }
   }
 
@@ -279,4 +343,4 @@ function runEngineTick() {
   return counts;
 }
 
-module.exports = { runEngineTick, isWinBackEligible, targetWinBackStage, targetProposalStage, WIN_BACK_STAGE_ORDER };
+module.exports = { runEngineTick, isWinBackEligible, targetWinBackStage, targetProposalStage, WIN_BACK_STAGE_ORDER, approveCheckpoint, rejectCheckpoint };
