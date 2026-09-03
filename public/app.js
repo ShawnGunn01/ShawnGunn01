@@ -138,6 +138,7 @@ function kpiTile(label, valueDisplay, thresholdData) {
 
 async function loadDashboard() {
   loadCheckpoints();
+  loadReviewPanel();
   const res = await apiFetch('/api/dashboard');
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -307,6 +308,51 @@ async function loadCheckpoints() {
   });
 }
 
+// ---------- monthly operating review (Prompt 10) ----------
+
+async function loadReviewPanel() {
+  const user = currentUser();
+  if (!user || user.role !== 'admin') return;
+
+  const settings = await apiFetch('/api/settings').then((r) => r.json());
+  const toolbar = document.getElementById('review-toolbar');
+  toolbar.innerHTML = [
+    settings.rolloutDate
+      ? `<span class="hint">Full rollout marked: ${settings.rolloutDate}</span>`
+      : `<button class="secondary" id="btn-mark-rollout">Mark Full Rollout</button>`,
+    `<button class="secondary" id="btn-generate-review">Generate Review Now</button>`,
+  ].join(' ');
+
+  document.getElementById('btn-mark-rollout')?.addEventListener('click', async () => {
+    if (!confirm('Mark full rollout as starting today? This is what the 30-day monthly review cadence counts from.')) return;
+    await apiFetch('/api/settings/mark-rollout', { method: 'POST' });
+    loadReviewPanel();
+  });
+  document.getElementById('btn-generate-review').addEventListener('click', async () => {
+    await apiFetch('/api/reviews/monthly/generate', { method: 'POST' });
+    loadReviewPanel();
+  });
+
+  const reviewsList = await apiFetch('/api/reviews/monthly?limit=1').then((r) => r.json());
+  const panel = document.getElementById('review-panel');
+  if (reviewsList.length === 0) {
+    panel.innerHTML = '<div class="card-meta">No review generated yet.</div>';
+    return;
+  }
+  const r = reviewsList[0];
+
+  const escalationsHtml = r.escalations.length
+    ? `<div class="threshold-status below_kill" style="margin-top:8px"><span class="dot"></span>${r.escalations.length} metric(s) missed target two reviews running: ${r.escalations.map((e) => labelize(e.metric)).join(', ')} — escalate per the operating cadence doc.</div>`
+    : `<div class="threshold-status on_track" style="margin-top:8px"><span class="dot"></span>No metric has missed target two reviews running.</div>`;
+
+  panel.innerHTML = `
+    <div class="card-meta">Period: ${r.periodLabel} · generated ${timeAgo(r.generatedAt)}</div>
+    <div class="run-row"><span>Draft edit rate</span><span>${r.draftEditRate.rate === null ? 'no sends yet' : `${r.draftEditRate.rate}% (${r.draftEditRate.editedSends}/${r.draftEditRate.totalSends} sends edited before send)`}</span></div>
+    <div class="run-row"><span>Opt-outs, last 30 days</span><span>${r.optOutTrend.newOptOutsLast30d} new · ${r.optOutTrend.cumulativeRate === null ? 'n/a' : `${r.optOutTrend.cumulativeRate}%`} cumulative of ${r.optOutTrend.totalEverSynced} ever synced</span></div>
+    <div class="run-row"><span>Flagged drafts</span><span>${r.feedbackSummary.totalFlags} total${r.feedbackSummary.totalFlags ? ' — ' + Object.entries(r.feedbackSummary.byCategory).map(([k, v]) => `${labelize(k)}: ${v}`).join(', ') : ''}</span></div>
+    ${escalationsHtml}`;
+}
+
 // ---------- review queue (per-owner; Prompt 8) ----------
 // Default: a viewer's queue is scoped to their OWN drafts server-side
 // (src/access.js resolveQueueScope) — this file just reflects that scope
@@ -399,11 +445,13 @@ function queueCard(t, { pending }) {
           <button class="secondary" data-save="${t.id}">Save Draft</button>
           <button data-send="${t.id}">Approve &amp; Send</button>
           <button class="secondary" data-status="skipped" data-id="${t.id}">Skip</button>
+          <button class="secondary" data-flag="${t.id}" title="Report this specific draft as bad, with a reason — feeds the monthly review">Flag Draft</button>
         </div>
         <div class="hint send-error" id="send-error-${t.id}"></div>`
     : `<div class="actions">
         <button data-status="replied" data-id="${t.id}">Mark Replied</button>
         <button class="secondary" data-status="out_of_office" data-id="${t.id}" title="Auto-reply or OOO — not a real reply, excluded from the reply-rate metric">Out of Office</button>
+        <button class="secondary" data-flag="${t.id}" title="Report this specific draft as bad, with a reason — feeds the monthly review">Flag Draft</button>
       </div>`;
 
   return `<div class="card queue-card" data-touch="${t.id}">
@@ -489,6 +537,10 @@ async function loadQueue() {
     });
   });
 
+  document.querySelectorAll('#queue-list [data-flag], #sent-list [data-flag]').forEach((btn) => {
+    btn.addEventListener('click', () => flagDraft(btn.dataset.flag));
+  });
+
   document.querySelectorAll('#queue-list [data-status], #sent-list [data-status]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await apiFetch(`/api/touches/${btn.dataset.id}`, {
@@ -513,6 +565,33 @@ async function saveDraftEdits(card, id) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   });
+}
+
+// ---------- flag a bad draft (Prompt 10 Item 3) ----------
+
+const FLAG_CATEGORIES = ['tone', 'factual_accuracy', 'wrong_cta', 'links', 'other'];
+
+async function flagDraft(touchId) {
+  const category = prompt(`Flag category — one of: ${FLAG_CATEGORIES.join(', ')}`, 'tone');
+  if (!category) return;
+  if (!FLAG_CATEGORIES.includes(category.trim())) {
+    alert(`Category must be one of: ${FLAG_CATEGORIES.join(', ')}`);
+    return;
+  }
+  const reason = prompt('Reason — be specific, this feeds future prompt tuning for the drafting engine:', '');
+  if (!reason || !reason.trim()) return;
+
+  const res = await apiFetch(`/api/touches/${touchId}/flag`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category: category.trim(), reason: reason.trim() }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Could not flag this draft.' }));
+    alert(err.error);
+    return;
+  }
+  alert('Flagged. This rolls up into the monthly review.');
 }
 
 // ---------- accounts ----------

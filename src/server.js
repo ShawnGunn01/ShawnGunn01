@@ -8,6 +8,7 @@ const access = require('./access');
 const guardrails = require('./guardrails');
 const gmail = require('./gmail');
 const calendly = require('./calendly');
+const reviews = require('./reviews');
 const { todayStr } = require('./dates');
 
 const app = express();
@@ -285,6 +286,33 @@ app.patch('/api/touches/:id', (req, res) => {
   res.json(updated);
 });
 
+// Flag a bad draft (Prompt 10 Item 3) — a lightweight way for Audrey or
+// Nick to report a specific draft's problem with a reason, distinct from
+// just fixing it silently in the editor. Feeds src/reviews.js's monthly
+// rollup, which is how this becomes actual future prompt-tuning input for
+// the drafting engine (Prompt 6) instead of feedback that only lives in
+// someone's memory until the next time it comes up in conversation.
+app.post('/api/touches/:id/flag', access.requireUser, (req, res) => {
+  const touch = store.getTouch(req.params.id);
+  if (!touch) return res.status(404).json({ error: 'Touch not found' });
+
+  const { category, reason } = req.body || {};
+  if (!store.DRAFT_FEEDBACK_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: `category must be one of: ${store.DRAFT_FEEDBACK_CATEGORIES.join(', ')}` });
+  }
+  if (!reason || !String(reason).trim()) {
+    return res.status(400).json({ error: 'reason is required — a category alone is not enough to act on later.' });
+  }
+
+  const entry = store.logDraftFeedback({ touchId: touch.id, accountId: touch.accountId, ownerId: touch.ownerId, flaggedBy: req.user.id, category, reason: String(reason).trim() });
+  store.logActivity('draft_flagged', touch.accountId, `${req.user.name} flagged a draft (${category}): ${entry.reason}`);
+  res.status(201).json(entry);
+});
+
+app.get('/api/draft-feedback', access.requireRole('admin'), (req, res) => {
+  res.json(store.listDraftFeedback({ category: req.query.category, limit: Number(req.query.limit) || 200 }));
+});
+
 // "Approve & Send" (Prompt 8 Items 2-3, 6). This is the ONLY code path
 // that actually emails a client — everywhere else in this app only drafts
 // or edits. Two things are non-negotiable and both happen here, in this
@@ -487,7 +515,7 @@ app.post('/api/webhooks/calendly', (req, res) => {
 // the default and matches every prior prompt's already-tested behavior.
 
 app.get('/api/settings', access.requireUser, (req, res) => {
-  res.json({ checkpointMode: store.getSetting('checkpointMode', false) });
+  res.json({ checkpointMode: store.getSetting('checkpointMode', false), rolloutDate: store.getSetting('rolloutDate', null) });
 });
 
 app.post('/api/settings/checkpoint-mode', access.requireRole('admin'), (req, res) => {
@@ -519,6 +547,28 @@ app.post('/api/checkpoints/:id/reject', access.requireRole('admin'), (req, res) 
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// ---------- Ongoing operating cadence (Prompt 10) ----------
+// Marking rollout is the one deliberate switch that starts the 30-day
+// clock the monthly review cadence is built around (see the scheduled
+// Routine set up alongside this code, and the operating cadence doc for
+// the full process this supports).
+
+app.post('/api/settings/mark-rollout', access.requireRole('admin'), (req, res) => {
+  const rolloutDate = store.setSetting('rolloutDate', todayStr());
+  store.logActivity('rollout_marked', null, `Full rollout marked by ${req.user.name} — the monthly review cadence begins 30 days from today.`);
+  res.json({ rolloutDate });
+});
+
+// History of generated reviews — what src/reviews.js compares each new
+// review against to detect a metric missing target two months running.
+app.get('/api/reviews/monthly', access.requireUser, (req, res) => {
+  res.json(store.listMonthlyReviews(Number(req.query.limit) || 24));
+});
+
+app.post('/api/reviews/monthly/generate', access.requireRole('admin'), (req, res) => {
+  res.status(201).json(reviews.generateMonthlyReview());
 });
 
 // ---------- Dev convenience ----------

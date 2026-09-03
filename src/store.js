@@ -18,6 +18,8 @@ const FILES = {
   sends: path.join(DATA_DIR, 'sends.json'),
   settings: path.join(DATA_DIR, 'settings.json'),
   checkpoints: path.join(DATA_DIR, 'checkpoints.json'),
+  draftFeedback: path.join(DATA_DIR, 'draft_feedback.json'),
+  monthlyReviews: path.join(DATA_DIR, 'monthly_reviews.json'),
 };
 
 // Dashboard access control (see Dashboard Access doc). Distinct from
@@ -237,6 +239,55 @@ function resolveCheckpoint(id, { status, decidedBy, reason }) {
   Object.assign(checkpoint, { status, decidedBy, decidedAt: new Date().toISOString(), reason: reason || null });
   writeJson(FILES.checkpoints, checkpoints);
   return checkpoint;
+}
+
+// ---------- Draft feedback (Prompt 10 Item 3) ----------
+// A lightweight way for Audrey or Nick to flag a specific bad draft with a
+// reason — feeds src/reviews.js's monthly rollup, which is how this
+// becomes actual future prompt-tuning input for the drafting engine
+// (Prompt 6) instead of feedback that only ever lives in someone's memory.
+
+const DRAFT_FEEDBACK_CATEGORIES = ['tone', 'factual_accuracy', 'wrong_cta', 'links', 'other'];
+
+function logDraftFeedback({ touchId, accountId, ownerId, flaggedBy, category, reason }) {
+  const feedback = readJson(FILES.draftFeedback, []);
+  const entry = {
+    id: genId('fb'),
+    touchId,
+    accountId,
+    ownerId,
+    flaggedBy,
+    category,
+    reason,
+    at: new Date().toISOString(),
+  };
+  feedback.push(entry);
+  writeJson(FILES.draftFeedback, feedback);
+  return entry;
+}
+
+function listDraftFeedback({ category, limit = 200 } = {}) {
+  let feedback = readJson(FILES.draftFeedback, []);
+  if (category) feedback = feedback.filter((f) => f.category === category);
+  return feedback.slice(-limit).reverse();
+}
+
+// ---------- Monthly reviews (Prompt 10 Item 1) ----------
+// One row per generated review, kept indefinitely — this history is what
+// lets src/reviews.js detect a metric missing target TWO reviews running
+// (Item 2's escalation trigger), not just read the current moment.
+
+function saveMonthlyReview(report) {
+  const reviews = readJson(FILES.monthlyReviews, []);
+  const entry = { id: genId('review'), ...report };
+  reviews.push(entry);
+  writeJson(FILES.monthlyReviews, reviews);
+  return entry;
+}
+
+function listMonthlyReviews(limit = 50) {
+  const reviews = readJson(FILES.monthlyReviews, []);
+  return reviews.slice(-limit).reverse();
 }
 
 function validateSyncRecord(rec) {
@@ -594,6 +645,11 @@ module.exports = {
   getCheckpoint,
   listCheckpoints,
   resolveCheckpoint,
+  logDraftFeedback,
+  listDraftFeedback,
+  DRAFT_FEEDBACK_CATEGORIES,
+  saveMonthlyReview,
+  listMonthlyReviews,
   listUsers,
   getUser,
 };

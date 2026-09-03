@@ -252,6 +252,45 @@ create table checkpoints (
 create index checkpoints_status_idx on checkpoints(status);
 create index checkpoints_account_idx on checkpoints(account_id);
 
+-- ---------- draft_feedback (Prompt 10 Item 3) ----------
+-- A lightweight way for Audrey or Nick to flag a specific bad draft with a
+-- reason — rolls up into monthly_reviews.feedback_summary below and is
+-- meant to feed future prompt tuning for the drafting engine (Prompt 6).
+
+create table draft_feedback (
+  id          uuid primary key default gen_random_uuid(),
+  touch_id    uuid not null references touches(id),
+  account_id  text not null references accounts(id),
+  owner_id    text not null references owners(id),
+  flagged_by  text not null references users(id),
+  category    text not null check (category in ('tone','factual_accuracy','wrong_cta','links','other')),
+  reason      text not null,
+  at          timestamptz not null default now()
+);
+
+create index draft_feedback_at_idx on draft_feedback(at desc);
+create index draft_feedback_category_idx on draft_feedback(category);
+
+-- ---------- monthly_reviews (Prompt 10 Item 1) ----------
+-- One row per generated review, kept indefinitely — this history is what
+-- lets the review process (src/reviews.js) detect a metric missing target
+-- TWO reviews running (Item 2's escalation trigger), not just the current
+-- moment. `targets` mirrors dashboard.js's threshold block verbatim, so
+-- there is exactly one place Prompt 3's target/kill judgments are computed.
+
+create table monthly_reviews (
+  id                 uuid primary key default gen_random_uuid(),
+  period_label       text not null,       -- 'YYYY-MM'
+  generated_at       timestamptz not null default now(),
+  targets            jsonb not null,      -- dashboard.js's thresholds block for this period
+  draft_edit_rate    jsonb not null,      -- { totalSends, editedSends, rate }
+  opt_out_trend      jsonb not null,      -- { newOptOutsLast30d, totalOptedOut, totalEverSynced, cumulativeRate }
+  feedback_summary   jsonb not null,      -- { totalFlags, byCategory }
+  escalations        jsonb not null default '[]'
+);
+
+create index monthly_reviews_period_idx on monthly_reviews(period_label);
+
 create index sends_account_idx on sends(account_id);
 create index sends_at_idx on sends(at desc);
 
