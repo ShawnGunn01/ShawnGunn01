@@ -193,3 +193,111 @@ button.danger { background: var(--bad); }
 .queue-card textarea { width: 100%; font-family: inherit; font-size: 14px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
 .queue-card input.subject { width: 100%; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; }
 .queue-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.queue-card .send-error { color: var(--bad); margin-top: 6px; }
+
+.sync-banner {
+  background: #fef3c7;
+  border: 1px solid #f5d78e;
+  color: #92620a;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.run-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.run-row:last-child { border-bottom: none; }
+.run-row .status-ok { color: var(--good); font-weight: 600; }
+.run-row .status-partial { color: var(--warn); font-weight: 600; }
+.run-row .status-error { color: var(--bad); font-weight: 600; }
+
+/* ---------- user switcher (dashboard access control) ---------- */
+
+.user-switcher { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.user-switcher select { padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; }
+.user-switcher .badge { text-transform: uppercase; letter-spacing: .03em; font-size: 10px; padding: 3px 8px; }
+.user-switcher .badge.admin { background: #ede9fe; color: #7c3aed; }
+.user-switcher .badge.viewer { background: #f3f4f6; color: var(--muted); }
+
+/* ---------- KPI row (the 4 validated top-row tiles) ---------- */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.kpi-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.kpi-tile .value { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.kpi-tile .label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+/* ---------- threshold meter: the visible target/kill reference line ---------- */
+
+.threshold-meter { margin-top: 12px; }
+.threshold-meter .track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: #eef0f4;
+  overflow: visible;
+  margin-bottom: 22px; /* room for marker labels drawn below the track */
+}
+.threshold-meter .fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; transition: width .2s; }
+.threshold-meter .fill.on_track { background: var(--good); }
+.threshold-meter .fill.watch { background: var(--warn); }
+.threshold-meter .fill.below_kill { background: var(--bad); }
+.threshold-meter .fill.not_applicable { background: var(--border); }
+
+.threshold-meter .marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--ink);
+  opacity: .55;
+}
+.threshold-meter .marker::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.threshold-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.threshold-status.on_track { color: var(--good); }
+.threshold-status.watch { color: var(--warn); }
+.threshold-status.below_kill { color: var(--bad); }
+.threshold-status.not_applicable { color: var(--muted); font-weight: 500; }
+.threshold-status .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+.threshold-note { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+
+.threshold-block { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 12px; }
+.threshold-block .threshold-row { margin-bottom: 14px; }
+.threshold-block .threshold-row:last-child { margin-bottom: 0; }
+.threshold-block .threshold-row-label { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+/* ---------- dashboard layout: left funnel / right activity + proposals ---------- */
+
+.dashboard-main { align-items: start; }
+.dashboard-right { display: flex; flex-direction: column; gap: 16px; }
+.secondary-card { margin-top: 20px; opacity: .92; }
+
+.admin-only[hidden], .viewer-only[hidden] { display: none; }

@@ -13,6 +13,12 @@ function unsubscribeFooter(accountId) {
   return `\n\n---\nDon't want these emails? Opt out any time: {{UNSUBSCRIBE_URL}}/${accountId}`;
 }
 
+// PRD v0.2 §10, Item 1: flat 5% for every account, no sliding scale, no
+// per-account approval. The offer's validity window is Item 2's decision —
+// it expires when Escalation begins (~7 days after this fires) rather than
+// a separately stated date, so the copy deliberately carries no date/duration.
+const INCENTIVE_PERCENT = 5;
+
 const WIN_BACK_TEMPLATES = {
   warm_up: (account) => ({
     subject: `Thinking of you, ${account.contactName || account.name}`,
@@ -21,6 +27,7 @@ const WIN_BACK_TEMPLATES = {
       `It's been a little while since we last worked together at ${account.name}, and your event ` +
       `anniversary is coming up. No ask here — just wanted to say hello and let you know we'd love ` +
       `to help again whenever the timing is right.\n\n` +
+      `If it's ever useful, here's where to find time: {{OWNER_CALENDLY_LINK}}\n\n` +
       `Warmly,\n{{OWNER_NAME}}` +
       unsubscribeFooter(account.id),
   }),
@@ -38,8 +45,8 @@ const WIN_BACK_TEMPLATES = {
     subject: `A little something to welcome you back`,
     body:
       `Hi ${account.contactName || 'there'},\n\n` +
-      `I know things get busy — if it's helpful, we'd love to offer ${account.incentivePct || 10}% off ` +
-      `if you book within the next couple weeks. No pressure either way, just wanted you to have the option.\n\n` +
+      `I know things get busy — if it's helpful, we'd love to offer ${INCENTIVE_PERCENT}% off to make it ` +
+      `easy to get back on the calendar. No pressure either way, just wanted you to have the option.\n\n` +
       `Book here: {{OWNER_CALENDLY_LINK}}\n\n` +
       `Best,\n{{OWNER_NAME}}` +
       unsubscribeFooter(account.id),
@@ -52,6 +59,7 @@ const PROPOSAL_TEMPLATES = {
     body:
       `Hi ${account.contactName || 'there'},\n\n` +
       `Just wanted to check in on the proposal we sent — happy to answer any questions or make changes.\n\n` +
+      `Easiest way to talk it through: {{OWNER_CALENDLY_LINK}}\n\n` +
       `Best,\n{{OWNER_NAME}}` +
       unsubscribeFooter(account.id),
   }),
@@ -62,6 +70,7 @@ const PROPOSAL_TEMPLATES = {
       `No pressure on the full-service proposal — if a lighter-touch option works better for now, we also ` +
       `offer a DIY package starting at $4,500 that gives you the core essentials with less coordination on ` +
       `our end. Either path works for us, just let me know what fits.\n\n` +
+      `Happy to walk through either option: {{OWNER_CALENDLY_LINK}}\n\n` +
       `Best,\n{{OWNER_NAME}}` +
       unsubscribeFooter(account.id),
   }),
@@ -71,16 +80,18 @@ const PROPOSAL_TEMPLATES = {
       `Hi ${account.contactName || 'there'},\n\n` +
       `Your event date is getting close, so I wanted to make sure we didn't lose the window if you'd like ` +
       `to move forward — full-service or DIY, whichever fits best right now.\n\n` +
+      `Grab time here if that's easiest: {{OWNER_CALENDLY_LINK}}\n\n` +
       `Best,\n{{OWNER_NAME}}` +
       unsubscribeFooter(account.id),
   }),
 };
 
 const NURTURE_TEMPLATE = (account) => ({
-  subject: `Checking in from ${'{{ORG_NAME}}'}`,
+  subject: `Checking in from {{ORG_NAME}}`,
   body:
     `Hi ${account.contactName || 'there'},\n\n` +
     `No news to report — just staying in touch. Let us know if there's ever anything we can help with.\n\n` +
+    `Always happy to find time: {{OWNER_CALENDLY_LINK}}\n\n` +
     `Best,\n{{OWNER_NAME}}` +
     unsubscribeFooter(account.id),
 });
@@ -90,20 +101,25 @@ const ESCALATION_CALL_SCRIPT = (account) => ({
   body:
     `${account.contactName || account.name} hasn't replied after the warm-up, soft ask, and incentive touches. ` +
     `This account is now flagged at-risk — reach out personally by call or text rather than another email.\n\n` +
-    `Account: ${account.name}\nContact: ${account.contactName || '—'} ${account.contactEmail ? `<${account.contactEmail}>` : ''}`,
+    `Account: ${account.name}\nContact: ${account.contactName || '—'}${account.contactEmail ? ` <${account.contactEmail}>` : ''}`,
 });
 
+// draftSource is 'template' for every touch today, since there is no live
+// model call yet (see file header). Once one exists, the drafting call
+// should be wrapped so a failure falls back to these same templates and
+// tags the touch 'template_fallback' rather than 'ai' — see Architecture
+// v0.1 §5, Scenario 2. Never let a drafting failure silently drop a touch.
 function draftWinBack(stage, account) {
-  if (stage === 'escalation') return { ...ESCALATION_CALL_SCRIPT(account), kind: 'call_flag' };
-  return { ...WIN_BACK_TEMPLATES[stage](account), kind: 'email' };
+  if (stage === 'escalation') return { ...ESCALATION_CALL_SCRIPT(account), kind: 'call_flag', draftSource: 'template' };
+  return { ...WIN_BACK_TEMPLATES[stage](account), kind: 'email', draftSource: 'template' };
 }
 
 function draftProposalFollowUp(stage, account) {
-  return { ...PROPOSAL_TEMPLATES[stage](account), kind: 'email' };
+  return { ...PROPOSAL_TEMPLATES[stage](account), kind: 'email', draftSource: 'template' };
 }
 
 function draftNurture(account) {
-  return { ...NURTURE_TEMPLATE(account), kind: 'email' };
+  return { ...NURTURE_TEMPLATE(account), kind: 'email', draftSource: 'template' };
 }
 
-module.exports = { draftWinBack, draftProposalFollowUp, draftNurture };
+module.exports = { draftWinBack, draftProposalFollowUp, draftNurture, INCENTIVE_PERCENT };
