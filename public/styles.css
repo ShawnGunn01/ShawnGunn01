@@ -193,3 +193,19 @@ button.danger { background: var(--bad); }
 .queue-card textarea { width: 100%; font-family: inherit; font-size: 14px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
 .queue-card input.subject { width: 100%; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; }
 .queue-card .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+.sync-banner {
+  background: #fef3c7;
+  border: 1px solid #f5d78e;
+  color: #92620a;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.run-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.run-row:last-child { border-bottom: none; }
+.run-row .status-ok { color: var(--good); font-weight: 600; }
+.run-row .status-partial { color: var(--warn); font-weight: 600; }
+.run-row .status-error { color: var(--bad); font-weight: 600; }

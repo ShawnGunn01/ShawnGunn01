@@ -9,7 +9,16 @@ const FILES = {
   touches: path.join(DATA_DIR, 'touches.json'),
   owners: path.join(DATA_DIR, 'owners.json'),
   activity: path.join(DATA_DIR, 'activity.json'),
+  purchases: path.join(DATA_DIR, 'purchases.json'),
+  syncRuns: path.join(DATA_DIR, 'sync_runs.json'),
+  engineRuns: path.join(DATA_DIR, 'engine_runs.json'),
+  metricsSnapshots: path.join(DATA_DIR, 'metrics_snapshots.json'),
 };
+
+// Fields a synced record must carry a real (non-empty) value for. Anything
+// missing one of these gets routed to the sync's `skipped` list instead of
+// silently accepted with a null — see Architecture v0.1 §4.
+const REQUIRED_SYNC_FIELDS = ['id', 'name', 'ownerId', 'lastPurchaseDate'];
 
 const DEFAULT_OWNERS = [
   { id: 'audrey', name: 'Audrey', email: '', calendlyLink: '', backupFor: 'nick' },
@@ -76,17 +85,39 @@ function updateAccount(id, patch) {
   return account;
 }
 
+function validateSyncRecord(rec) {
+  for (const field of REQUIRED_SYNC_FIELDS) {
+    if (rec[field] === undefined || rec[field] === null || rec[field] === '') {
+      return `missing required field: ${field}`;
+    }
+  }
+  if (Number.isNaN(Date.parse(rec.lastPurchaseDate))) {
+    return `lastPurchaseDate is not a parseable date: ${JSON.stringify(rec.lastPurchaseDate)}`;
+  }
+  return null;
+}
+
 // Upsert accounts synced from Salesforce (via Make.com). Never overwrites
 // local sequence state (funnel/stage/optedOut/proposal outcome/etc).
+// One bad record in a batch never blocks the rest — it's routed to
+// `skipped` with a reason instead of silently accepted or failing the
+// whole call. See Architecture v0.1 §4 (partial-batch failure) and
+// Scenario 4 (a Salesforce field arriving null instead of erroring).
 function syncAccounts(records) {
   const accounts = listAccounts();
   const byId = new Map(accounts.map((a) => [a.id, a]));
   const now = new Date().toISOString();
   let created = 0;
   let updated = 0;
+  const skipped = [];
 
   for (const rec of records) {
-    if (!rec.id) continue;
+    const reason = validateSyncRecord(rec);
+    if (reason) {
+      skipped.push({ id: rec && rec.id, reason });
+      continue;
+    }
+
     const existing = byId.get(rec.id);
     if (existing) {
       for (const field of SOURCE_FIELDS) {
@@ -107,7 +138,7 @@ function syncAccounts(records) {
         eventBookedDate: rec.eventBookedDate || '',
         eventAnniversaryDate: rec.eventAnniversaryDate || '',
         lastTouchDate: rec.lastTouchDate || rec.lastPurchaseDate || '',
-        proposal: rec.proposal || null, // { sentDate, eventDate, outcome }
+        proposal: rec.proposal || null, // { sentDate, eventDate, outcome, amount, lostReason }
         funnel: 'none', // none | win_back | proposal_follow_up | nurture
         stage: null,
         stageEnteredDate: null,
@@ -123,7 +154,57 @@ function syncAccounts(records) {
   }
 
   saveAccounts([...byId.values()]);
-  return { created, updated };
+  return { created, updated, skipped };
+}
+
+// Hours since the freshest account sync. Drives the dashboard's "sync may
+// be stale" banner (Architecture v0.1 §4) — the cheapest, most direct
+// answer to "what happens if Make.com sync fails silently."
+function hoursSinceLastSync() {
+  const accounts = listAccounts();
+  if (accounts.length === 0) return null;
+  const latest = accounts.reduce((max, a) => {
+    const t = a.syncedAt ? new Date(a.syncedAt).getTime() : 0;
+    return t > max ? t : max;
+  }, 0);
+  if (latest === 0) return null;
+  return (Date.now() - latest) / (1000 * 60 * 60);
+}
+
+// ---------- Purchases (event log — see Metrics Spec gap #1) ----------
+// A running purchaseCount + single lastPurchaseDate can't answer "how many
+// of these fell in the last 365 days," which real Repeat-Purchase Rate YoY
+// needs. This log is the fix: one dated row per purchase, sourced either
+// from a Salesforce sync that includes purchase history, or recorded
+// directly by this system when it produces a rebook or proposal conversion.
+
+function listPurchases(accountId) {
+  const purchases = readJson(FILES.purchases, []);
+  return accountId ? purchases.filter((p) => p.accountId === accountId) : purchases;
+}
+
+function recordPurchase({ accountId, date, amount, source }) {
+  const purchases = readJson(FILES.purchases, []);
+  const entry = { id: genId('purch'), accountId, date, amount: Number(amount) || 0, source, recordedAt: new Date().toISOString() };
+  purchases.push(entry);
+  writeJson(FILES.purchases, purchases);
+  return entry;
+}
+
+// ---------- Metrics snapshots (see Metrics Spec gap #2) ----------
+// Intended to be written on a schedule (Make.com or equivalent) so a YoY
+// comparison is a lookup against stored history rather than a full
+// recompute every time. Manual for now — see server.js POST /api/dev/snapshot-metrics.
+
+function recordMetricsSnapshot({ periodStart, periodEnd, metricName, value }) {
+  const snapshots = readJson(FILES.metricsSnapshots, []);
+  snapshots.push({ id: genId('snap'), periodStart, periodEnd, metricName, value, computedAt: new Date().toISOString() });
+  writeJson(FILES.metricsSnapshots, snapshots);
+}
+
+function listMetricsSnapshots(metricName) {
+  const snapshots = readJson(FILES.metricsSnapshots, []);
+  return metricName ? snapshots.filter((s) => s.metricName === metricName) : snapshots;
 }
 
 // ---------- Touches (AI-drafted outreach, owner reviews & sends) ----------
@@ -140,7 +221,7 @@ function getTouch(id) {
   return listTouches().find((t) => t.id === id) || null;
 }
 
-function createTouch({ accountId, funnel, stage, subject, body, ownerId, kind }) {
+function createTouch({ accountId, funnel, stage, subject, body, ownerId, kind, draftSource }) {
   const touches = listTouches();
   const touch = {
     id: genId('touch'),
@@ -151,10 +232,12 @@ function createTouch({ accountId, funnel, stage, subject, body, ownerId, kind })
     subject,
     body,
     ownerId,
-    status: 'pending_review', // pending_review | sent | replied | skipped
+    draftSource: draftSource || 'template', // 'template' | 'ai' | 'template_fallback'
+    status: 'pending_review', // pending_review | sent | replied | out_of_office | skipped
     createdAt: new Date().toISOString(),
     sentAt: null,
     repliedAt: null,
+    replyMarkedBy: null, // ownerId who marked replied/out_of_office — data-quality audit trail
   };
   touches.push(touch);
   saveTouches(touches);
@@ -209,12 +292,63 @@ function listActivity(limit = 50) {
   return activity.slice(-limit).reverse();
 }
 
+// ---------- Sync & engine run log ----------
+// "Log every sync run and every cohort recalculation somewhere reviewable
+// without opening Make.com." These are separate from the activity log
+// (which is per-account, human-readable) — these are per-RUN, machine
+// records: one row per sync call, one row per engine tick, with outcome
+// and errors, so sync/engine health is checkable from this system alone.
+
+function logSyncRun({ createdCount, updatedCount, skipped, errorMessage }) {
+  const runs = readJson(FILES.syncRuns, []);
+  const run = {
+    id: genId('syncrun'),
+    at: new Date().toISOString(),
+    createdCount: createdCount || 0,
+    updatedCount: updatedCount || 0,
+    skippedCount: (skipped || []).length,
+    skipped: skipped || [],
+    status: errorMessage ? 'error' : (skipped || []).length > 0 ? 'partial' : 'ok',
+    errorMessage: errorMessage || null,
+  };
+  runs.push(run);
+  writeJson(FILES.syncRuns, runs);
+  return run;
+}
+
+function listSyncRuns(limit = 50) {
+  const runs = readJson(FILES.syncRuns, []);
+  return runs.slice(-limit).reverse();
+}
+
+function logEngineRun({ touchesCreated, accountsAdvanced, errorMessage, startedAt }) {
+  const runs = readJson(FILES.engineRuns, []);
+  const run = {
+    id: genId('enginerun'),
+    at: new Date().toISOString(),
+    startedAt: startedAt || null,
+    touchesCreated: touchesCreated || 0,
+    accountsAdvanced: accountsAdvanced || 0,
+    status: errorMessage ? 'error' : 'ok',
+    errorMessage: errorMessage || null,
+  };
+  runs.push(run);
+  writeJson(FILES.engineRuns, runs);
+  return run;
+}
+
+function listEngineRuns(limit = 50) {
+  const runs = readJson(FILES.engineRuns, []);
+  return runs.slice(-limit).reverse();
+}
+
 module.exports = {
   listAccounts,
   saveAccounts,
   getAccount,
   updateAccount,
   syncAccounts,
+  hoursSinceLastSync,
   listTouches,
   saveTouches,
   getTouch,
@@ -226,4 +360,12 @@ module.exports = {
   updateOwner,
   logActivity,
   listActivity,
+  listPurchases,
+  recordPurchase,
+  recordMetricsSnapshot,
+  listMetricsSnapshots,
+  logSyncRun,
+  listSyncRuns,
+  logEngineRun,
+  listEngineRuns,
 };

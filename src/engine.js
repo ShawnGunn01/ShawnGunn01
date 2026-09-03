@@ -120,47 +120,77 @@ function advanceProposalFollowUp(account, counts) {
   }
 
   if (account.proposal.eventDate && daysUntil(account.proposal.eventDate) < 0 && !account.proposal.outcome) {
-    store.updateAccount(account.id, { funnel: 'nurture', stage: 'nurture', stageEnteredDate: todayStr() });
+    // Metrics Spec gap #10: don't leave outcome null — a null outcome makes
+    // this account silently vanish from the Proposal Outcomes denominator
+    // instead of counting as the loss it is. expired_no_response is
+    // distinct from a rep-marked 'lost' so the two are reportable separately.
+    store.updateAccount(account.id, {
+      funnel: 'nurture',
+      stage: 'nurture',
+      stageEnteredDate: todayStr(),
+      proposal: { ...account.proposal, outcome: 'expired_no_response' },
+    });
     store.logActivity('exited_to_nurture', account.id, `${account.name}'s proposal window closed without an outcome`);
   }
 }
 
+// Isolates one account's evaluation so a bad record can't take down the
+// whole tick — matches the sync layer's per-record error handling
+// (Architecture v0.1 §4) applied to the engine side of the pipeline.
+function evaluateAccount(account, counts) {
+  const hasOpenProposal = account.proposal && account.proposal.sentDate && !account.proposal.outcome;
+
+  if (hasOpenProposal) {
+    advanceProposalFollowUp(account, counts);
+    return;
+  }
+
+  if (account.funnel === 'win_back') {
+    advanceWinBack(account, counts);
+  } else if (account.funnel === 'nurture') {
+    if (isWinBackEligible(account)) {
+      store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
+      store.logActivity('entered_win_back', account.id, `${account.name} re-entered Win-Back from Nurture`);
+      counts.accountsAdvanced += 1;
+      // Same-tick advance so a fresh entry doesn't sit a full cycle before its first due touch.
+      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
+    } else {
+      maybeNurtureTouch(account, counts);
+    }
+  } else if (account.funnel === 'none' || !account.funnel) {
+    if (isWinBackEligible(account)) {
+      store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
+      store.logActivity('entered_win_back', account.id, `${account.name} entered Win-Back (dormant 12mo+ purchaser, no event booked)`);
+      counts.accountsAdvanced += 1;
+      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
+    }
+  }
+}
+
+// "Log every cohort recalculation somewhere reviewable without opening
+// Make.com" — every call is recorded to engine_runs (store.logEngineRun),
+// success or failure, before this returns or throws.
 function runEngineTick() {
+  const startedAt = new Date().toISOString();
   const counts = { touchesCreated: 0, accountsAdvanced: 0 };
   const accounts = store.listAccounts().filter((a) => !a.optedOut);
 
-  for (const account of accounts) {
-    // A live, un-resolved proposal takes priority over dormant-account logic —
-    // it means the account is mid-conversation, not lapsed.
-    const hasOpenProposal = account.proposal && account.proposal.sentDate && !account.proposal.outcome;
-
-    if (hasOpenProposal) {
-      advanceProposalFollowUp(account, counts);
-      continue;
-    }
-
-    if (account.funnel === 'win_back') {
-      advanceWinBack(account, counts);
-    } else if (account.funnel === 'nurture') {
-      if (isWinBackEligible(account)) {
-        store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
-        store.logActivity('entered_win_back', account.id, `${account.name} re-entered Win-Back from Nurture`);
-        counts.accountsAdvanced += 1;
-        // Same-tick advance so a fresh entry doesn't sit a full cycle before its first due touch.
-        advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
-      } else {
-        maybeNurtureTouch(account, counts);
-      }
-    } else if (account.funnel === 'none' || !account.funnel) {
-      if (isWinBackEligible(account)) {
-        store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
-        store.logActivity('entered_win_back', account.id, `${account.name} entered Win-Back (dormant 12mo+ purchaser, no event booked)`);
-        counts.accountsAdvanced += 1;
-        advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
+  try {
+    for (const account of accounts) {
+      try {
+        evaluateAccount(account, counts);
+      } catch (err) {
+        // One malformed account (e.g. an unparseable date that slipped past
+        // sync validation) is logged and skipped, not a failure of the tick.
+        store.logActivity('engine_error', account.id, `Skipped ${account.name} this tick: ${err.message}`);
       }
     }
+  } catch (err) {
+    store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, errorMessage: err.message, startedAt });
+    throw err;
   }
 
+  store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, startedAt });
   return counts;
 }
 

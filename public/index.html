@@ -19,12 +19,18 @@
 
   <main>
     <section id="tab-dashboard" class="tab-panel active">
+      <div id="sync-banner" class="sync-banner" hidden></div>
       <div class="panel-toolbar">
         <button id="btn-run-engine">Run Cohort Engine</button>
         <button class="secondary" id="btn-seed">Load Sample Accounts</button>
         <span class="hint" id="engine-result"></span>
       </div>
       <div class="stat-grid" id="stat-grid"></div>
+
+      <div class="card">
+        <h3>Sync &amp; Engine Health <span class="card-meta">reviewable without opening Make.com</span></h3>
+        <div id="run-health"></div>
+      </div>
 
       <div class="two-col">
         <div class="card">

@@ -42,16 +42,35 @@ function timeAgo(iso) {
 async function loadDashboard() {
   const stats = await fetch('/api/dashboard').then((r) => r.json());
 
+  const banner = document.getElementById('sync-banner');
+  if (stats.syncStale) {
+    banner.hidden = false;
+    banner.textContent = `Sync may be stale — last account sync was ${Math.round(stats.hoursSinceLastSync)}h ago (threshold: 36h). Check Make.com's scenario history.`;
+  } else {
+    banner.hidden = true;
+  }
+
   const cards = [
     ['Active Accounts in Cohort', stats.activeAccountsInCohort],
-    ['Repeat-Purchase Rate (YoY)', `${stats.repeatPurchaseRateYoY}%`],
+    ['Repeat-Purchase Rate (lifetime, pilot proxy)', `${stats.repeatPurchaseRateYoY}%`],
     ['Reply Rate (30d)', `${stats.replyRateLast30}%`],
-    ['Rebooked Revenue (QTD)', money(stats.rebookedRevenueQTD)],
+    ['Recovered Revenue (QTD)', money(stats.rebookedRevenueQTD)],
     ['Pending Review', stats.pendingReviewCount],
     ['At-Risk (Escalation)', stats.atRiskCount],
   ];
   document.getElementById('stat-grid').innerHTML = cards
     .map(([label, value]) => `<div class="stat-card"><div class="value">${value}</div><div class="label">${label}</div></div>`)
+    .join('');
+
+  const ab = stats.activeAccountsBreakdown;
+  const rev = stats.recoveredRevenueQTD;
+  document.getElementById('run-health').innerHTML = [
+    ['Active by funnel', `${ab.winBack} Win-Back · ${ab.proposalFollowUp} Proposal Follow-Up · ${ab.nurture} Nurture`],
+    ['Recovered revenue split', `${money(rev.winBack)} Win-Back · ${money(rev.proposalFollowUp)} Proposal Follow-Up`],
+    ['Last sync run', stats.lastSyncRun ? `${stats.lastSyncRun.status} · ${timeAgo(stats.lastSyncRun.at)} · +${stats.lastSyncRun.createdCount}/${stats.lastSyncRun.updatedCount} · ${stats.lastSyncRun.skippedCount} skipped` : 'none yet'],
+    ['Last engine run', stats.lastEngineRun ? `${stats.lastEngineRun.status} · ${timeAgo(stats.lastEngineRun.at)} · ${stats.lastEngineRun.touchesCreated} drafted` : 'none yet'],
+  ]
+    .map(([label, value]) => `<div class="run-row"><span>${label}</span><span>${value}</span></div>`)
     .join('');
 
   const f = stats.cohortFunnel;
@@ -63,13 +82,18 @@ async function loadDashboard() {
     ['Rebooked', f.rebooked],
   ]
     .map(([label, value]) => `<div class="funnel-row"><span>${label}</span><strong>${value}</strong></div>`)
-    .join('');
+    .join('')
+    + (f.passThrough.softAskToIncentive !== null
+      ? `<div class="card-meta" style="margin-top:8px">Pass-through: Warm-Up→Soft Ask ${f.passThrough.warmUpToSoftAsk ?? '—'}% · Soft Ask→Incentive ${f.passThrough.softAskToIncentive ?? '—'}% · Incentive→Escalation ${f.passThrough.incentiveToEscalation ?? '—'}%</div>`
+      : '');
 
   const p = stats.proposalOutcomes;
   document.getElementById('proposal-outcomes').innerHTML = [
+    ['Open (unresolved)', p.openCount],
     ['Full-Service', p.fullService],
     ['DIY', p.diy],
     ['Lost', p.lost],
+    ['Expired, No Response', p.expiredNoResponse],
   ]
     .map(([label, value]) => `<div class="funnel-row"><span>${label}</span><strong>${value}</strong></div>`)
     .join('');
@@ -133,6 +157,7 @@ async function loadQueue() {
           <button data-save="${t.id}">Save Edits</button>
           <button data-status="sent" data-id="${t.id}">Mark Sent</button>
           <button class="secondary" data-status="replied" data-id="${t.id}">Mark Replied</button>
+          <button class="secondary" data-status="out_of_office" data-id="${t.id}" title="Auto-reply or OOO — not a real reply, excluded from the reply-rate metric">Out of Office</button>
           <button class="secondary" data-status="skipped" data-id="${t.id}">Skip</button>
         </div>
       </div>`;
@@ -186,8 +211,13 @@ async function loadAccounts() {
         <td>${a.lastTouchDate || '—'}</td>
         <td>
           ${
-            a.funnel && a.funnel !== 'none'
+            a.funnel === 'win_back'
               ? `<button class="secondary" data-rebook="${a.id}">Mark Rebooked</button>`
+              : ''
+          }
+          ${
+            a.funnel === 'proposal_follow_up'
+              ? `<button class="secondary" data-outcome="${a.id}">Record Outcome</button>`
               : ''
           }
           ${!a.optedOut ? `<button class="secondary" data-optout="${a.id}">Opt Out</button>` : ''}
@@ -205,6 +235,31 @@ async function loadAccounts() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: Number(amount) || 0 }),
       });
+      loadAccounts();
+    });
+  });
+
+  tbody.querySelectorAll('[data-outcome]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const outcome = prompt('Outcome — full_service, diy, or lost:', 'full_service');
+      if (!outcome) return;
+      const body = { outcome };
+      if (outcome === 'full_service' || outcome === 'diy') {
+        body.amount = Number(prompt('Deal amount ($):', '4500') || 0);
+      } else if (outcome === 'lost') {
+        body.lostReason = prompt('Reason (required) — declined, competitor, budget, went dormant, other:', 'declined');
+        if (!body.lostReason) return;
+      }
+      const res = await fetch(`/api/accounts/${btn.dataset.outcome}/proposal/outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error);
+        return;
+      }
       loadAccounts();
     });
   });
