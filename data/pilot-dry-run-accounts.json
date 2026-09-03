@@ -1,0 +1,292 @@
+[
+  {
+    "id": "DRYRUN-01",
+    "name": "Riverside Youth Coalition",
+    "contactName": "Talia Osei",
+    "contactEmail": "talia@riversideyouth.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-11-17",
+    "purchaseCount": 2,
+    "eventAnniversaryDate": "2026-11-17",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-02",
+    "name": "Lakeside Senior Network",
+    "contactName": "Warren Doyle",
+    "contactEmail": "warren@lakesideseniors.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-11-07",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-11-17",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-03",
+    "name": "Prairie Arts Alliance",
+    "contactName": "Noelle Vance",
+    "contactEmail": "noelle@prairieartsalliance.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-10-08",
+    "purchaseCount": 3,
+    "eventAnniversaryDate": "2026-10-11",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-04",
+    "name": "Cobblestone Family Services",
+    "contactName": "Derek Nunn",
+    "contactEmail": "derek@cobblestonefs.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-11-27",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-10-11",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-05",
+    "name": "Willowbrook Recovery Center",
+    "contactName": "Ines Salgado",
+    "contactEmail": "ines@willowbrookrc.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-09-18",
+    "purchaseCount": 2,
+    "eventAnniversaryDate": "2026-09-21",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-06",
+    "name": "Ashford Community Fund",
+    "contactName": "Callum Reyes",
+    "contactEmail": "callum@ashfordcf.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-10-28",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-09-21",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-07",
+    "name": "Brookhaven Outreach",
+    "contactName": "Marisol Ferry",
+    "contactEmail": "marisol@brookhavenoutreach.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-09-08",
+    "purchaseCount": 4,
+    "eventAnniversaryDate": "2026-09-07",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-08",
+    "name": "Timberline Youth Project",
+    "contactName": "Aaron Blake",
+    "contactEmail": "aaron@timberlineyouth.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-11-12",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-09-07",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-09",
+    "name": "Meridian Wellness Group",
+    "contactName": "Priya Kalra",
+    "contactEmail": "priya@meridianwellness.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2026-02-15",
+    "purchaseCount": 1,
+    "eventBookedDate": "2026-10-13",
+    "eventAnniversaryDate": "2027-10-08",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-10",
+    "name": "Northfield Community Table",
+    "contactName": "Simon Okafor",
+    "contactEmail": "simon@northfieldtable.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2026-02-15",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-09-23",
+    "lastTouchDate": "2026-08-24"
+  },
+  {
+    "id": "DRYRUN-11",
+    "name": "Silverpine Family Alliance",
+    "contactName": "Greta Lindqvist",
+    "contactEmail": "greta@silverpinefamily.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-07-30",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-09-23",
+    "lastTouchDate": "2025-11-07"
+  },
+  {
+    "id": "DRYRUN-12",
+    "name": "Copperfield Learning Center",
+    "contactName": "Yusuf Aydin",
+    "contactEmail": "yusuf@copperfieldlearning.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2026-07-05",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2027-06-30",
+    "lastTouchDate": "2026-08-29",
+    "proposal": {
+      "sentDate": "2026-08-29",
+      "eventDate": "2026-11-02",
+      "outcome": null
+    }
+  },
+  {
+    "id": "DRYRUN-13",
+    "name": "Hearthstone Support Network",
+    "contactName": "Delia Marsh",
+    "contactEmail": "delia@hearthstonesupport.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2026-06-25",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2027-06-30",
+    "lastTouchDate": "2026-08-23",
+    "proposal": {
+      "sentDate": "2026-08-23",
+      "eventDate": "2026-10-23",
+      "outcome": null
+    }
+  },
+  {
+    "id": "DRYRUN-14",
+    "name": "Fieldstone Youth Alliance",
+    "contactName": "Rowan Betts",
+    "contactEmail": "rowan@fieldstoneyouth.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2026-06-15",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2027-06-30",
+    "lastTouchDate": "2026-08-14",
+    "proposal": {
+      "sentDate": "2026-08-14",
+      "eventDate": "2026-09-08",
+      "outcome": null
+    }
+  },
+  {
+    "id": "DRYRUN-15",
+    "name": "Ridgeway Community Kitchen",
+    "contactName": "Odette Chan",
+    "contactEmail": "odette@ridgewaykitchen.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2026-02-15",
+    "purchaseCount": 2,
+    "eventAnniversaryDate": "2026-09-23",
+    "lastTouchDate": "2026-05-26",
+    "proposal": {
+      "sentDate": "2026-08-29",
+      "eventDate": "2026-11-02",
+      "outcome": null
+    }
+  },
+  {
+    "id": "DRYRUN-16",
+    "name": "Oakcrest Family Resource",
+    "contactName": "Baxter Cole",
+    "contactEmail": "baxter@oakcrestfamily.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2026-07-10",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2027-06-30",
+    "lastTouchDate": "2026-08-29",
+    "proposal": {
+      "sentDate": "2026-08-29",
+      "eventDate": "2026-10-18",
+      "outcome": null
+    }
+  },
+  {
+    "id": "DRYRUN-17",
+    "name": "Sunview Community Partners",
+    "contactName": "Harold Ames",
+    "contactEmail": "harold@sunviewpartners.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-12-07",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-12-12",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-18",
+    "name": "Ironwood Family Center",
+    "contactName": "Petra Voss",
+    "contactEmail": "petra@ironwoodfamily.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-12-17",
+    "purchaseCount": 2,
+    "eventAnniversaryDate": "2026-12-07",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-19",
+    "name": "Bluepine Outreach Alliance",
+    "contactName": "Emory Suarez",
+    "contactEmail": "emory@bluepineoutreach.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-10-18",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-10-28",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-20",
+    "name": "Redstone Youth Network",
+    "contactName": "Lucia Brandt",
+    "contactEmail": "lucia@redstoneyouth.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-12-27",
+    "purchaseCount": 3,
+    "eventAnniversaryDate": "2026-12-22",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-21",
+    "name": "Golden Valley Support Circle",
+    "contactName": "Nadia Ferris",
+    "contactEmail": "nadia@goldenvalleysupport.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-09-28",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-10-15",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-22",
+    "name": "Cedarbrook Family Alliance",
+    "contactName": "Otis Meyers",
+    "contactEmail": "otis@cedarbrookfamily.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-11-17",
+    "purchaseCount": 2,
+    "eventAnniversaryDate": "2026-11-27",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-23",
+    "name": "Wrenfield Community Trust",
+    "contactName": "Sabine Holt",
+    "contactEmail": "sabine@wrenfieldtrust.example",
+    "ownerId": "audrey",
+    "lastPurchaseDate": "2025-11-07",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-10-06",
+    "lastTouchDate": "2026-05-26"
+  },
+  {
+    "id": "DRYRUN-24",
+    "name": "Hawthorne Youth Collective",
+    "contactName": "Miles Ogunde",
+    "contactEmail": "miles@hawthorneyouth.example",
+    "ownerId": "nick",
+    "lastPurchaseDate": "2025-10-08",
+    "purchaseCount": 1,
+    "eventAnniversaryDate": "2026-12-17",
+    "lastTouchDate": "2026-05-26"
+  }
+]
