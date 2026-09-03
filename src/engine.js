@@ -13,6 +13,8 @@
 
 const store = require('./store');
 const drafts = require('./drafts');
+const { interpolateDraft } = require('./interpolate');
+const { validateDraft } = require('./guardrails');
 const { todayStr, daysSince, daysUntil, addDays, businessDaysSince, inRange } = require('./dates');
 
 const WIN_BACK_STAGE_ORDER = ['dormant', 'warm_up', 'soft_ask', 'incentive', 'escalation'];
@@ -49,7 +51,54 @@ function priorStageWasReplied(accountId, funnel, priorStage) {
   return !!prior && prior.status === 'replied';
 }
 
-function advanceWinBack(account, counts) {
+// The drafting engine's quality gate. Generates via drafts.js, resolves
+// {{tokens}} to real values (interpolate.js), then runs both guardrail
+// layers (guardrails.js) before anything is allowed into the review queue.
+// A blocked draft does NOT create a touch and does NOT advance the
+// account's stage — the account is retried on the next tick rather than
+// silently marked as having reached a stage it never actually got a valid
+// draft for. Every attempt, pass or block, is logged in full
+// (store.logDraftGeneration) for traceability.
+function generateAndQueueDraft({ rawDraftFn, funnel, stage, account, allAccounts, promptInput }) {
+  const rawDraft = rawDraftFn();
+  const owner = store.listOwners().find((o) => o.id === account.ownerId) || null;
+  const finalDraft = interpolateDraft(rawDraft, owner);
+  const { valid, errors } = validateDraft(finalDraft, account, owner, allAccounts);
+
+  store.logDraftGeneration({
+    accountId: account.id,
+    funnel,
+    stage,
+    promptInput,
+    rawOutput: { subject: rawDraft.subject, body: rawDraft.body },
+    finalOutput: { subject: finalDraft.subject, body: finalDraft.body },
+    valid,
+    errors,
+  });
+
+  if (!valid) {
+    store.logActivity(
+      'draft_blocked',
+      account.id,
+      `${labelize(stage)} draft for ${account.name} blocked by guardrails: ${errors.join('; ')}`
+    );
+    return { queued: false, errors };
+  }
+
+  const touch = store.createTouch({
+    accountId: account.id,
+    funnel,
+    stage,
+    subject: finalDraft.subject,
+    body: finalDraft.body,
+    kind: finalDraft.kind,
+    draftSource: finalDraft.draftSource,
+    ownerId: account.ownerId,
+  });
+  return { queued: true, touch };
+}
+
+function advanceWinBack(account, counts, allAccounts) {
   const target = targetWinBackStage(account);
 
   if (target && target !== account.stage && !store.hasTouchForStage(account.id, 'win_back', target)) {
@@ -57,12 +106,23 @@ function advanceWinBack(account, counts) {
     const stoodDown = gatingPriorStage && priorStageWasReplied(account.id, 'win_back', gatingPriorStage);
 
     if (!stoodDown) {
-      const draft = drafts.draftWinBack(target, account);
-      store.createTouch({ accountId: account.id, funnel: 'win_back', stage: target, ...draft, ownerId: account.ownerId });
-      store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
-      store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
-      counts.touchesCreated += 1;
-      counts.accountsAdvanced += 1;
+      const result = generateAndQueueDraft({
+        rawDraftFn: () => drafts.draftWinBack(target, account),
+        funnel: 'win_back',
+        stage: target,
+        account,
+        allAccounts,
+        promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId, eventAnniversaryDate: account.eventAnniversaryDate },
+      });
+
+      if (result.queued) {
+        store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
+        store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
+        counts.touchesCreated += 1;
+        counts.accountsAdvanced += 1;
+      } else {
+        counts.draftsBlocked += 1;
+      }
     }
   }
 
@@ -79,16 +139,27 @@ function advanceWinBack(account, counts) {
 
 const NURTURE_INTERVAL_DAYS = 90;
 
-function maybeNurtureTouch(account, counts) {
+function maybeNurtureTouch(account, counts, allAccounts) {
   if (daysSince(account.lastTouchDate) < NURTURE_INTERVAL_DAYS) return;
   const touches = store.listTouches().filter((t) => t.accountId === account.id && t.funnel === 'nurture');
   const recent = touches.some((t) => daysSince(t.createdAt.slice(0, 10)) < NURTURE_INTERVAL_DAYS);
   if (recent) return;
 
-  const draft = drafts.draftNurture(account);
-  store.createTouch({ accountId: account.id, funnel: 'nurture', stage: 'nurture', ...draft, ownerId: account.ownerId });
-  store.logActivity('touch_drafted', account.id, `Nurture check-in drafted for ${account.name}`);
-  counts.touchesCreated += 1;
+  const result = generateAndQueueDraft({
+    rawDraftFn: () => drafts.draftNurture(account),
+    funnel: 'nurture',
+    stage: 'nurture',
+    account,
+    allAccounts,
+    promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId },
+  });
+
+  if (result.queued) {
+    store.logActivity('touch_drafted', account.id, `Nurture check-in drafted for ${account.name}`);
+    counts.touchesCreated += 1;
+  } else {
+    counts.draftsBlocked += 1;
+  }
 }
 
 function targetProposalStage(account) {
@@ -100,7 +171,7 @@ function targetProposalStage(account) {
   return null;
 }
 
-function advanceProposalFollowUp(account, counts) {
+function advanceProposalFollowUp(account, counts, allAccounts) {
   if (account.funnel !== 'proposal_follow_up') {
     store.updateAccount(account.id, { funnel: 'proposal_follow_up', stage: 'sent', stageEnteredDate: account.proposal.sentDate || todayStr() });
     account.funnel = 'proposal_follow_up';
@@ -110,12 +181,23 @@ function advanceProposalFollowUp(account, counts) {
   if (target && target !== account.stage && !store.hasTouchForStage(account.id, 'proposal_follow_up', target)) {
     const stoodDown = target === 'diy_fallback' && priorStageWasReplied(account.id, 'proposal_follow_up', 'check_in');
     if (!stoodDown) {
-      const draft = drafts.draftProposalFollowUp(target, account);
-      store.createTouch({ accountId: account.id, funnel: 'proposal_follow_up', stage: target, ...draft, ownerId: account.ownerId });
-      store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
-      store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
-      counts.touchesCreated += 1;
-      counts.accountsAdvanced += 1;
+      const result = generateAndQueueDraft({
+        rawDraftFn: () => drafts.draftProposalFollowUp(target, account),
+        funnel: 'proposal_follow_up',
+        stage: target,
+        account,
+        allAccounts,
+        promptInput: { name: account.name, contactName: account.contactName, ownerId: account.ownerId, proposal: account.proposal },
+      });
+
+      if (result.queued) {
+        store.updateAccount(account.id, { stage: target, stageEnteredDate: todayStr() });
+        store.logActivity('touch_drafted', account.id, `${labelize(target)} drafted for ${account.name}`);
+        counts.touchesCreated += 1;
+        counts.accountsAdvanced += 1;
+      } else {
+        counts.draftsBlocked += 1;
+      }
     }
   }
 
@@ -137,32 +219,34 @@ function advanceProposalFollowUp(account, counts) {
 // Isolates one account's evaluation so a bad record can't take down the
 // whole tick — matches the sync layer's per-record error handling
 // (Architecture v0.1 §4) applied to the engine side of the pipeline.
-function evaluateAccount(account, counts) {
+// allAccounts is threaded through to the drafting gate for the
+// cross-account factual-accuracy check (guardrails.js).
+function evaluateAccount(account, counts, allAccounts) {
   const hasOpenProposal = account.proposal && account.proposal.sentDate && !account.proposal.outcome;
 
   if (hasOpenProposal) {
-    advanceProposalFollowUp(account, counts);
+    advanceProposalFollowUp(account, counts, allAccounts);
     return;
   }
 
   if (account.funnel === 'win_back') {
-    advanceWinBack(account, counts);
+    advanceWinBack(account, counts, allAccounts);
   } else if (account.funnel === 'nurture') {
     if (isWinBackEligible(account)) {
       store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
       store.logActivity('entered_win_back', account.id, `${account.name} re-entered Win-Back from Nurture`);
       counts.accountsAdvanced += 1;
       // Same-tick advance so a fresh entry doesn't sit a full cycle before its first due touch.
-      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
+      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts, allAccounts);
     } else {
-      maybeNurtureTouch(account, counts);
+      maybeNurtureTouch(account, counts, allAccounts);
     }
   } else if (account.funnel === 'none' || !account.funnel) {
     if (isWinBackEligible(account)) {
       store.updateAccount(account.id, { funnel: 'win_back', stage: 'dormant', stageEnteredDate: todayStr() });
       store.logActivity('entered_win_back', account.id, `${account.name} entered Win-Back (dormant 12mo+ purchaser, no event booked)`);
       counts.accountsAdvanced += 1;
-      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts);
+      advanceWinBack({ ...account, funnel: 'win_back', stage: 'dormant' }, counts, allAccounts);
     }
   }
 }
@@ -172,13 +256,14 @@ function evaluateAccount(account, counts) {
 // success or failure, before this returns or throws.
 function runEngineTick() {
   const startedAt = new Date().toISOString();
-  const counts = { touchesCreated: 0, accountsAdvanced: 0 };
-  const accounts = store.listAccounts().filter((a) => !a.optedOut);
+  const counts = { touchesCreated: 0, accountsAdvanced: 0, draftsBlocked: 0 };
+  const allAccounts = store.listAccounts();
+  const accounts = allAccounts.filter((a) => !a.optedOut);
 
   try {
     for (const account of accounts) {
       try {
-        evaluateAccount(account, counts);
+        evaluateAccount(account, counts, allAccounts);
       } catch (err) {
         // One malformed account (e.g. an unparseable date that slipped past
         // sync validation) is logged and skipped, not a failure of the tick.
@@ -186,11 +271,11 @@ function runEngineTick() {
       }
     }
   } catch (err) {
-    store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, errorMessage: err.message, startedAt });
+    store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, draftsBlocked: counts.draftsBlocked, errorMessage: err.message, startedAt });
     throw err;
   }
 
-  store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, startedAt });
+  store.logEngineRun({ touchesCreated: counts.touchesCreated, accountsAdvanced: counts.accountsAdvanced, draftsBlocked: counts.draftsBlocked, startedAt });
   return counts;
 }
 

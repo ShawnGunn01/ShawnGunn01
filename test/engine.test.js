@@ -11,10 +11,21 @@ const store = require('../src/store');
 const engine = require('../src/engine');
 const { addDays, todayStr } = require('../src/dates');
 
+// The drafting engine's required-elements guardrail (src/guardrails.js)
+// blocks any draft without a real per-owner Calendly link — same as a
+// real deployment, owners must be configured before drafts can queue.
+store.updateOwner('audrey', { calendlyLink: 'https://calendly.com/audrey-impact4good' });
+store.updateOwner('nick', { calendlyLink: 'https://calendly.com/nick-impact4good' });
+
 function seedAccount(overrides = {}) {
+  const uid = Math.random().toString(36).slice(2, 8);
   const base = {
-    id: `acct_${Math.random().toString(36).slice(2, 8)}`,
-    name: 'Test Org',
+    id: `acct_${uid}`,
+    // Unique per account, not a shared placeholder — real Salesforce
+    // account names don't collide, and a shared name across two distinct
+    // test accounts would (correctly) trip the guardrails' cross-account
+    // contamination check (guardrails.js validateFactualAccuracy).
+    name: `Test Org ${uid}`,
     contactName: 'Jamie',
     contactEmail: 'jamie@example.com',
     ownerId: 'audrey',

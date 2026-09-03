@@ -77,6 +77,17 @@ app.get('/api/engine/runs', (req, res) => {
   res.json(store.listEngineRuns(Number(req.query.limit) || 50));
 });
 
+// "Log the full prompt and output for every draft, for traceability."
+// One row per generation ATTEMPT — including guardrail-blocked ones, not
+// just successfully queued touches. Filter to valid=false to see exactly
+// what the drafting engine has refused to queue, and why.
+app.get('/api/drafts/generations', (req, res) => {
+  const filter = { limit: Number(req.query.limit) || 100 };
+  if (req.query.accountId) filter.accountId = req.query.accountId;
+  if (req.query.valid !== undefined) filter.valid = req.query.valid === 'true';
+  res.json(store.listDraftGenerations(filter));
+});
+
 // ---------- Accounts ----------
 
 app.get('/api/accounts', (req, res) => {

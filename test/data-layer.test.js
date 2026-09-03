@@ -13,10 +13,14 @@ const drafts = require('../src/drafts');
 const dashboard = require('../src/dashboard');
 const { addDays, todayStr } = require('../src/dates');
 
+store.updateOwner('audrey', { calendlyLink: 'https://calendly.com/audrey-impact4good' });
+store.updateOwner('nick', { calendlyLink: 'https://calendly.com/nick-impact4good' });
+
 function seedAccount(overrides = {}) {
+  const uid = Math.random().toString(36).slice(2, 8);
   const base = {
-    id: `acct_${Math.random().toString(36).slice(2, 8)}`,
-    name: 'Test Org',
+    id: `acct_${uid}`,
+    name: `Test Org ${uid}`, // unique — see engine.test.js for why a shared name is wrong here
     contactName: 'Jamie',
     ownerId: 'audrey',
     lastPurchaseDate: addDays(todayStr(), -200),

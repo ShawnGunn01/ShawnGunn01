@@ -13,6 +13,7 @@ const FILES = {
   syncRuns: path.join(DATA_DIR, 'sync_runs.json'),
   engineRuns: path.join(DATA_DIR, 'engine_runs.json'),
   metricsSnapshots: path.join(DATA_DIR, 'metrics_snapshots.json'),
+  draftGenerations: path.join(DATA_DIR, 'draft_generations.json'),
 };
 
 // Fields a synced record must carry a real (non-empty) value for. Anything
@@ -321,7 +322,7 @@ function listSyncRuns(limit = 50) {
   return runs.slice(-limit).reverse();
 }
 
-function logEngineRun({ touchesCreated, accountsAdvanced, errorMessage, startedAt }) {
+function logEngineRun({ touchesCreated, accountsAdvanced, draftsBlocked, errorMessage, startedAt }) {
   const runs = readJson(FILES.engineRuns, []);
   const run = {
     id: genId('enginerun'),
@@ -329,6 +330,7 @@ function logEngineRun({ touchesCreated, accountsAdvanced, errorMessage, startedA
     startedAt: startedAt || null,
     touchesCreated: touchesCreated || 0,
     accountsAdvanced: accountsAdvanced || 0,
+    draftsBlocked: draftsBlocked || 0,
     status: errorMessage ? 'error' : 'ok',
     errorMessage: errorMessage || null,
   };
@@ -340,6 +342,41 @@ function logEngineRun({ touchesCreated, accountsAdvanced, errorMessage, startedA
 function listEngineRuns(limit = 50) {
   const runs = readJson(FILES.engineRuns, []);
   return runs.slice(-limit).reverse();
+}
+
+// ---------- Draft generations (full prompt + output, every attempt) ----------
+// "Log the full prompt and output for every draft for traceability."
+// One row per generation ATTEMPT — including ones the guardrails blocked —
+// not one row per successful touch. promptInput is the structured input
+// that produced the draft (account/stage/owner snapshot); today that's a
+// template lookup key, not literal model prompt text, but the same field
+// carries a real prompt string once draftSource becomes 'ai' (drafts.js
+// header) without changing this log's shape.
+
+function logDraftGeneration({ accountId, funnel, stage, promptInput, rawOutput, finalOutput, valid, errors }) {
+  const generations = readJson(FILES.draftGenerations, []);
+  const entry = {
+    id: genId('gen'),
+    accountId,
+    funnel,
+    stage,
+    promptInput,
+    rawOutput,     // exactly what drafts.js returned, pre-interpolation
+    finalOutput,   // post-interpolation — what would have been queued
+    valid,
+    errors,
+    at: new Date().toISOString(),
+  };
+  generations.push(entry);
+  writeJson(FILES.draftGenerations, generations);
+  return entry;
+}
+
+function listDraftGenerations({ accountId, valid, limit = 100 } = {}) {
+  let generations = readJson(FILES.draftGenerations, []);
+  if (accountId) generations = generations.filter((g) => g.accountId === accountId);
+  if (valid !== undefined) generations = generations.filter((g) => g.valid === valid);
+  return generations.slice(-limit).reverse();
 }
 
 module.exports = {
@@ -368,4 +405,6 @@ module.exports = {
   listSyncRuns,
   logEngineRun,
   listEngineRuns,
+  logDraftGeneration,
+  listDraftGenerations,
 };
