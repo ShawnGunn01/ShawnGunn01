@@ -1,0 +1,802 @@
+<title>Growth Strategy Metrics Dashboard</title>
+<meta name="description" content="Real-time KPI tracking for Gunn International's 90-day growth strategy system.">
+<style>
+  :root {
+    --color-bg: #fafaf8;
+    --color-surface: #ffffff;
+    --color-border: #e5e3e0;
+    --color-text: #2c2c2c;
+    --color-text-secondary: #7a7a7a;
+    --color-accent: #d97706;
+    --color-success: #059669;
+    --color-warning: #f59e0b;
+    --color-critical: #dc2626;
+    --color-info: #0ea5e9;
+    --font-display: "Georgia", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-bg: #1a1a18;
+      --color-surface: #252521;
+      --color-border: #3a3a36;
+      --color-text: #f5f5f1;
+      --color-text-secondary: #a8a8a8;
+      --color-accent: #f97316;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --color-bg: #1a1a18;
+    --color-surface: #252521;
+    --color-border: #3a3a36;
+    --color-text: #f5f5f1;
+    --color-text-secondary: #a8a8a8;
+    --color-accent: #f97316;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0 16px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+
+  .header {
+    max-width: 1200px;
+    margin: 24px auto 0;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    margin: 0 0 8px 0;
+    font-weight: 400;
+  }
+
+  .subtitle {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 0;
+  }
+
+  .section {
+    margin-bottom: 40px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 400;
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--color-accent);
+    display: inline-block;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-family: "Monaco", monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 8px;
+  }
+
+  .metric-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .status-on-track {
+    background: rgba(5, 150, 105, 0.1);
+    color: var(--color-success);
+  }
+
+  .status-at-risk {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning);
+  }
+
+  .status-behind {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--color-critical);
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--color-success);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .progress-fill.at-risk {
+    background: var(--color-warning);
+  }
+
+  .progress-fill.behind {
+    background: var(--color-critical);
+  }
+
+  .month-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    align-items: center;
+  }
+
+  .month-label {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .targets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .target-item {
+    font-size: 12px;
+    padding: 8px;
+    background: var(--color-bg);
+    border-radius: 4px;
+  }
+
+  .target-label {
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+
+  .target-value {
+    font-weight: 600;
+    font-family: "Monaco", monospace;
+  }
+
+  .channel-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .channel-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .channel-title {
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .channel-metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+  }
+
+  .channel-metric:last-child {
+    border-bottom: none;
+  }
+
+  .metric-name {
+    color: var(--color-text-secondary);
+  }
+
+  .metric-data {
+    font-weight: 600;
+    font-family: "Monaco", monospace;
+  }
+
+  .controls {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  button {
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  button:hover {
+    opacity: 0.9;
+  }
+
+  input[type="date"], input[type="number"] {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    color: var(--color-text);
+    font-family: var(--font-body);
+  }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .summary-table th {
+    background: var(--color-bg);
+    padding: 12px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .summary-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+    font-family: "Monaco", monospace;
+  }
+
+  .summary-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .footnote {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+  }
+</style>
+
+<div class="header">
+  <h1>Growth Strategy Dashboard</h1>
+  <p class="subtitle">Gunn International • 90-Day Execution Metrics</p>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <label>Current Month: <input type="text" id="currentMonth" value="Month 1" style="width: 80px;"></label>
+    <label>Day: <input type="number" id="currentDay" value="15" min="1" max="90" style="width: 60px;"></label>
+    <button onclick="updateMetrics()">Update Dashboard</button>
+    <button onclick="resetToDefaults()">Reset to Month 1</button>
+  </div>
+
+  <!-- KEY PERFORMANCE INDICATORS -->
+  <div class="section">
+    <h2 class="section-title">Key Performance Indicators</h2>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Raw Leads (Month)</div>
+        <div class="metric-value" id="rawLeads">0</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="rawLeadsProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="rawLeadsStatus">On Track</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">MQL (Month)</div>
+        <div class="metric-value" id="mql">0</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="mqlProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="mqlStatus">On Track</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">SQL (Month)</div>
+        <div class="metric-value" id="sql">0</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="sqlProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="sqlStatus">On Track</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Calls Booked</div>
+        <div class="metric-value" id="callsBooked">0</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="callsBookedProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="callsBookedStatus">On Track</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Email Open Rate</div>
+        <div class="metric-value" id="emailOpenRate">0%</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="openRateProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="openRateStatus">On Track</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Email Reply Rate</div>
+        <div class="metric-value" id="emailReplyRate">0%</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="replyRateProgress" style="width: 0%"></div>
+        </div>
+        <div class="metric-status" id="replyRateStatus">On Track</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHANNEL PERFORMANCE -->
+  <div class="section">
+    <h2 class="section-title">Channel Performance</h2>
+    <div class="channel-cards">
+      <div class="channel-card">
+        <h3 class="channel-title">📧 Outbound Email (ABM)</h3>
+        <div class="channel-metric">
+          <span class="metric-name">Emails Sent</span>
+          <span class="metric-data" id="emailsSent">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Open Rate</span>
+          <span class="metric-data" id="emailOpenRate2">0%</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Reply Rate</span>
+          <span class="metric-data" id="emailReplyRate2">0%</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Raw Leads</span>
+          <span class="metric-data" id="emailLeads">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Target: 35/mo</span>
+          <span class="metric-data" style="color: var(--color-accent);">📧</span>
+        </div>
+      </div>
+
+      <div class="channel-card">
+        <h3 class="channel-title">📱 LinkedIn Authority</h3>
+        <div class="channel-metric">
+          <span class="metric-name">Posts Published</span>
+          <span class="metric-data" id="linkedinPosts">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Engagement Rate</span>
+          <span class="metric-data" id="linkedinEngagement">0%</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Profile Visits</span>
+          <span class="metric-data" id="profileVisits">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Inbound Inquiries</span>
+          <span class="metric-data" id="linkedinLeads">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Target: 25/mo</span>
+          <span class="metric-data" style="color: var(--color-accent);">📱</span>
+        </div>
+      </div>
+
+      <div class="channel-card">
+        <h3 class="channel-title">🤝 Referral Partners</h3>
+        <div class="channel-metric">
+          <span class="metric-name">Partners Engaged</span>
+          <span class="metric-data" id="partnersEngaged">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Warm Intros</span>
+          <span class="metric-data" id="referralLeads">0</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Conversion Rate</span>
+          <span class="metric-data" id="referralConversion">0%</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Partner Value</span>
+          <span class="metric-data" id="partnerQuality">—</span>
+        </div>
+        <div class="channel-metric">
+          <span class="metric-name">Target: 15+/mo</span>
+          <span class="metric-data" style="color: var(--color-accent);">🤝</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 30/60/90 DAY TARGETS -->
+  <div class="section">
+    <h2 class="section-title">30/60/90 Day Targets</h2>
+
+    <div class="month-row">
+      <div class="month-label">🗓 Month 1 (Days 1–30)</div>
+      <div class="targets-grid">
+        <div class="target-item">
+          <div class="target-label">Raw Leads</div>
+          <div class="target-value">15–25</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">MQL</div>
+          <div class="target-value">8–12</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Calls Booked</div>
+          <div class="target-value">1–2</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Email Open Rate</div>
+          <div class="target-value">22–28%</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">LinkedIn Posts</div>
+          <div class="target-value">8</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Decision</div>
+          <div class="target-value">GO/NO-GO</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="month-row">
+      <div class="month-label">🗓 Month 2 (Days 31–60)</div>
+      <div class="targets-grid">
+        <div class="target-item">
+          <div class="target-label">Raw Leads</div>
+          <div class="target-value">50–60</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">MQL</div>
+          <div class="target-value">18–24</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Calls Booked</div>
+          <div class="target-value">3–5</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Email Velocity</div>
+          <div class="target-value">200–250/wk</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Partners Committed</div>
+          <div class="target-value">6–8</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">First Proposal</div>
+          <div class="target-value">1+</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="month-row">
+      <div class="month-label">🗓 Month 3 (Days 61–90)</div>
+      <div class="targets-grid">
+        <div class="target-item">
+          <div class="target-label">Raw Leads</div>
+          <div class="target-value">100+</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">MQL</div>
+          <div class="target-value">35–40</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Calls Booked</div>
+          <div class="target-value">4–6</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Email Velocity</div>
+          <div class="target-value">250+/wk</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">Proposals</div>
+          <div class="target-value">3–5</div>
+        </div>
+        <div class="target-item">
+          <div class="target-label">First Client</div>
+          <div class="target-value">1+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUALITY METRICS -->
+  <div class="section">
+    <h2 class="section-title">Quality & Conversion Metrics</h2>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Target</th>
+          <th>Month 1</th>
+          <th>Month 2</th>
+          <th>Month 3+</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Email Open Rate</td>
+          <td>25–35%</td>
+          <td id="t1OpenRate">—</td>
+          <td id="t2OpenRate">—</td>
+          <td id="t3OpenRate">—</td>
+        </tr>
+        <tr>
+          <td>Email Reply Rate</td>
+          <td>5–8%</td>
+          <td id="t1ReplyRate">—</td>
+          <td id="t2ReplyRate">—</td>
+          <td id="t3ReplyRate">—</td>
+        </tr>
+        <tr>
+          <td>MQL % of Leads</td>
+          <td>35%</td>
+          <td id="t1MQLRate">—</td>
+          <td id="t2MQLRate">—</td>
+          <td id="t3MQLRate">—</td>
+        </tr>
+        <tr>
+          <td>SQL % of MQL</td>
+          <td>50%</td>
+          <td id="t1SQLRate">—</td>
+          <td id="t2SQLRate">—</td>
+          <td id="t3SQLRate">—</td>
+        </tr>
+        <tr>
+          <td>Sales Cycle (days)</td>
+          <td>7–14</td>
+          <td id="t1Cycle">—</td>
+          <td id="t2Cycle">—</td>
+          <td id="t3Cycle">—</td>
+        </tr>
+        <tr>
+          <td>LinkedIn Engagement</td>
+          <td>3–5%</td>
+          <td id="t1LIEngagement">—</td>
+          <td id="t2LIEngagement">—</td>
+          <td id="t3LIEngagement">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnote">
+    <strong>How to use:</strong> Update the current month and day above to see projected vs. actual performance. Real data replaces estimates as execution progresses. <strong>Color coding:</strong> Green = on track (≥80% of target), Yellow = at risk (60–80%), Red = behind (<60%).
+  </div>
+</div>
+
+<script>
+  const monthData = {
+    1: {
+      rawLeads: { target: 20, weight: 1.0 },
+      mql: { target: 10, weight: 1.0 },
+      sql: { target: 5, weight: 1.0 },
+      callsBooked: { target: 1.5, weight: 1.0 },
+      emailOpenRate: { target: 25, weight: 1.0 },
+      emailReplyRate: { target: 6, weight: 1.0 },
+      emailsSent: { target: 100 },
+      linkedinPosts: { target: 8 },
+      linkedinEngagement: { target: 3 },
+      profileVisits: { target: 50 },
+      linkedinLeads: { target: 5 },
+      partnersEngaged: { target: 3 },
+      referralLeads: { target: 1 }
+    },
+    2: {
+      rawLeads: { target: 55, weight: 1.0 },
+      mql: { target: 21, weight: 1.0 },
+      sql: { target: 10.5, weight: 1.0 },
+      callsBooked: { target: 4, weight: 1.0 },
+      emailOpenRate: { target: 30, weight: 1.0 },
+      emailReplyRate: { target: 6.5, weight: 1.0 },
+      emailsSent: { target: 450 },
+      linkedinPosts: { target: 12 },
+      linkedinEngagement: { target: 4 },
+      profileVisits: { target: 150 },
+      linkedinLeads: { target: 8 },
+      partnersEngaged: { target: 7 },
+      referralLeads: { target: 3 }
+    },
+    3: {
+      rawLeads: { target: 100, weight: 1.0 },
+      mql: { target: 35, weight: 1.0 },
+      sql: { target: 17.5, weight: 1.0 },
+      callsBooked: { target: 5, weight: 1.0 },
+      emailOpenRate: { target: 30, weight: 1.0 },
+      emailReplyRate: { target: 7, weight: 1.0 },
+      emailsSent: { target: 750 },
+      linkedinPosts: { target: 12 },
+      linkedinEngagement: { target: 4 },
+      profileVisits: { target: 200 },
+      linkedinLeads: { target: 10 },
+      partnersEngaged: { target: 10 },
+      referralLeads: { target: 5 }
+    }
+  };
+
+  function getStatus(actual, target) {
+    const ratio = actual / target;
+    if (ratio >= 0.8) return 'on-track';
+    if (ratio >= 0.6) return 'at-risk';
+    return 'behind';
+  }
+
+  function updateMetrics() {
+    const monthInput = document.getElementById('currentMonth').value;
+    const dayInput = parseInt(document.getElementById('currentDay').value);
+
+    let month = 1;
+    if (monthInput.includes('2')) month = 2;
+    if (monthInput.includes('3')) month = 3;
+
+    const targets = monthData[month];
+    const progress = Math.min(dayInput / 30, 1.0);
+
+    // Simulate data with some randomness
+    const rawLeads = Math.round(targets.rawLeads.target * progress * (0.7 + Math.random() * 0.6));
+    const mql = Math.round(targets.mql.target * progress * (0.7 + Math.random() * 0.6));
+    const sql = Math.round(targets.sql.target * progress * (0.7 + Math.random() * 0.6));
+    const callsBooked = Math.round(targets.callsBooked.target * progress * (0.7 + Math.random() * 0.6));
+
+    const emailOpenRate = Math.round((targets.emailOpenRate.target * progress * (0.8 + Math.random() * 0.4)) * 10) / 10;
+    const emailReplyRate = Math.round((targets.emailReplyRate.target * progress * (0.8 + Math.random() * 0.4)) * 10) / 10;
+    const emailsSent = Math.round(targets.emailsSent.target * progress * (0.6 + Math.random() * 0.8));
+
+    const linkedinPosts = Math.round(targets.linkedinPosts.target * progress);
+    const linkedinEngagement = Math.round((targets.linkedinEngagement.target * progress * (0.7 + Math.random() * 0.6)) * 10) / 10;
+    const profileVisits = Math.round(targets.profileVisits.target * progress * (0.6 + Math.random() * 0.8));
+    const linkedinLeads = Math.round(targets.linkedinLeads.target * progress * (0.6 + Math.random() * 0.8));
+
+    const partnersEngaged = Math.round(targets.partnersEngaged.target * progress * (0.7 + Math.random() * 0.6));
+    const referralLeads = Math.round(targets.referralLeads.target * progress * (0.5 + Math.random() * 1.0));
+
+    // Update KPIs
+    document.getElementById('rawLeads').textContent = rawLeads;
+    document.getElementById('mql').textContent = mql;
+    document.getElementById('sql').textContent = sql;
+    document.getElementById('callsBooked').textContent = callsBooked;
+    document.getElementById('emailOpenRate').textContent = emailOpenRate.toFixed(1) + '%';
+    document.getElementById('emailReplyRate').textContent = emailReplyRate.toFixed(1) + '%';
+
+    // Update progress bars
+    updateBar('rawLeadsProgress', rawLeads, targets.rawLeads.target);
+    updateBar('mqlProgress', mql, targets.mql.target);
+    updateBar('sqlProgress', sql, targets.sql.target);
+    updateBar('callsBookedProgress', callsBooked, targets.callsBooked.target);
+    updateBar('openRateProgress', emailOpenRate, targets.emailOpenRate.target);
+    updateBar('replyRateProgress', emailReplyRate, targets.emailReplyRate.target);
+
+    // Update status indicators
+    updateStatus('rawLeadsStatus', rawLeads, targets.rawLeads.target);
+    updateStatus('mqlStatus', mql, targets.mql.target);
+    updateStatus('sqlStatus', sql, targets.sql.target);
+    updateStatus('callsBookedStatus', callsBooked, targets.callsBooked.target);
+    updateStatus('openRateStatus', emailOpenRate, targets.emailOpenRate.target);
+    updateStatus('replyRateStatus', emailReplyRate, targets.emailReplyRate.target);
+
+    // Update channel cards
+    document.getElementById('emailsSent').textContent = emailsSent;
+    document.getElementById('emailOpenRate2').textContent = emailOpenRate.toFixed(1) + '%';
+    document.getElementById('emailReplyRate2').textContent = emailReplyRate.toFixed(1) + '%';
+    document.getElementById('emailLeads').textContent = Math.round(emailsSent * (emailReplyRate / 100));
+
+    document.getElementById('linkedinPosts').textContent = linkedinPosts;
+    document.getElementById('linkedinEngagement').textContent = linkedinEngagement.toFixed(1) + '%';
+    document.getElementById('profileVisits').textContent = profileVisits;
+    document.getElementById('linkedinLeads').textContent = linkedinLeads;
+
+    document.getElementById('partnersEngaged').textContent = partnersEngaged;
+    document.getElementById('referralLeads').textContent = referralLeads;
+    document.getElementById('referralConversion').textContent = partnersEngaged > 0 ? Math.round((referralLeads / partnersEngaged) * 100) + '%' : '—';
+  }
+
+  function updateBar(id, actual, target) {
+    const percentage = Math.min((actual / target) * 100, 100);
+    const bar = document.getElementById(id);
+    bar.style.width = percentage + '%';
+
+    const status = getStatus(actual, target);
+    bar.classList.remove('at-risk', 'behind');
+    if (status === 'at-risk') bar.classList.add('at-risk');
+    if (status === 'behind') bar.classList.add('behind');
+  }
+
+  function updateStatus(id, actual, target) {
+    const status = getStatus(actual, target);
+    const element = document.getElementById(id);
+    element.classList.remove('status-on-track', 'status-at-risk', 'status-behind');
+
+    if (status === 'on-track') {
+      element.textContent = '✓ On Track';
+      element.classList.add('status-on-track');
+    } else if (status === 'at-risk') {
+      element.textContent = '⚠ At Risk';
+      element.classList.add('status-at-risk');
+    } else {
+      element.textContent = '✗ Behind';
+      element.classList.add('status-behind');
+    }
+  }
+
+  function resetToDefaults() {
+    document.getElementById('currentMonth').value = 'Month 1';
+    document.getElementById('currentDay').value = '15';
+    updateMetrics();
+  }
+
+  // Initialize
+  updateMetrics();
+</script>
