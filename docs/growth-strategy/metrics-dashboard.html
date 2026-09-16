@@ -1,5 +1,5 @@
 <title>Growth Strategy Metrics Dashboard</title>
-<meta name="description" content="Real-time KPI tracking for Gunn International's 90-day growth strategy system.">
+<meta name="description" content="Real-time KPI tracking for Gunn International's 90-day growth strategy system with Apollo.io integration.">
 <style>
   :root {
     --color-bg: #fafaf8;
@@ -334,8 +334,13 @@
 
 <div class="container">
   <div class="controls">
+    <label>Apollo API Key: <input type="password" id="apolloApiKey" placeholder="Paste Apollo API key" style="width: 200px;"></label>
+    <button onclick="connectApollo()">Connect Apollo</button>
+    <span id="apolloStatus" style="margin-left: 12px; font-size: 12px; color: var(--color-text-secondary);">Not connected</span>
+    <div style="width: 100%; height: 1px; background: var(--color-border); margin: 8px 0;"></div>
     <label>Current Month: <input type="text" id="currentMonth" value="Month 1" style="width: 80px;"></label>
     <label>Day: <input type="number" id="currentDay" value="15" min="1" max="90" style="width: 60px;"></label>
+    <button onclick="fetchApolloData()">Sync Apollo Data</button>
     <button onclick="updateMetrics()">Update Dashboard</button>
     <button onclick="resetToDefaults()">Reset to Month 1</button>
   </div>
@@ -639,6 +644,116 @@
 </div>
 
 <script>
+  let apolloApiKey = null;
+  let apolloConnected = false;
+  let apolloData = null;
+
+  // Apollo.io API endpoints
+  const APOLLO_BASE_URL = 'https://api.apollo.io/v1';
+
+  async function connectApollo() {
+    const keyInput = document.getElementById('apolloApiKey').value;
+    if (!keyInput || keyInput.trim().length === 0) {
+      alert('Please enter your Apollo API key');
+      return;
+    }
+
+    apolloApiKey = keyInput.trim();
+
+    try {
+      // Test connection by fetching user profile
+      const response = await fetch(`${APOLLO_BASE_URL}/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apolloApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        apolloConnected = true;
+        document.getElementById('apolloStatus').textContent = '✓ Connected to Apollo';
+        document.getElementById('apolloStatus').style.color = 'var(--color-success)';
+        document.getElementById('apolloApiKey').disabled = true;
+        document.querySelector('button[onclick="connectApollo()"]').disabled = true;
+        await fetchApolloData();
+      } else {
+        throw new Error('Invalid API key');
+      }
+    } catch (error) {
+      alert('Failed to connect: ' + error.message);
+      apolloConnected = false;
+      document.getElementById('apolloStatus').textContent = 'Connection failed';
+      document.getElementById('apolloStatus').style.color = 'var(--color-critical)';
+    }
+  }
+
+  async function fetchApolloData() {
+    if (!apolloConnected) {
+      alert('Please connect to Apollo first');
+      return;
+    }
+
+    try {
+      document.getElementById('apolloStatus').textContent = '⟳ Syncing...';
+
+      // Fetch email campaigns
+      const campaignsResponse = await fetch(`${APOLLO_BASE_URL}/emailer_campaigns`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apolloApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!campaignsResponse.ok) throw new Error('Failed to fetch campaigns');
+
+      const campaignsData = await campaignsResponse.json();
+      apolloData = campaignsData;
+
+      // Parse campaign metrics
+      if (campaignsData.emailer_campaigns && campaignsData.emailer_campaigns.length > 0) {
+        let totalSent = 0;
+        let totalOpens = 0;
+        let totalReplies = 0;
+        let totalBounces = 0;
+
+        campaignsData.emailer_campaigns.forEach(campaign => {
+          totalSent += campaign.stats?.messages_sent || 0;
+          totalOpens += campaign.stats?.messages_opened || 0;
+          totalReplies += campaign.stats?.messages_replied || 0;
+          totalBounces += campaign.stats?.messages_bounced || 0;
+        });
+
+        // Calculate rates
+        const openRate = totalSent > 0 ? (totalOpens / totalSent * 100).toFixed(1) : 0;
+        const replyRate = totalSent > 0 ? (totalReplies / totalSent * 100).toFixed(1) : 0;
+
+        // Update dashboard with real data
+        document.getElementById('emailsSent').textContent = totalSent;
+        document.getElementById('emailOpenRate2').textContent = openRate + '%';
+        document.getElementById('emailReplyRate2').textContent = replyRate + '%';
+        document.getElementById('emailLeads').textContent = totalReplies;
+
+        // Update main KPIs
+        document.getElementById('emailOpenRate').textContent = openRate + '%';
+        document.getElementById('emailReplyRate').textContent = replyRate + '%';
+
+        updateBar('openRateProgress', parseFloat(openRate), 30);
+        updateBar('replyRateProgress', parseFloat(replyRate), 7);
+        updateStatus('openRateStatus', parseFloat(openRate), 30);
+        updateStatus('replyRateStatus', parseFloat(replyRate), 7);
+      }
+
+      document.getElementById('apolloStatus').textContent = '✓ Connected (last sync: ' + new Date().toLocaleTimeString() + ')';
+      document.getElementById('apolloStatus').style.color = 'var(--color-success)';
+    } catch (error) {
+      console.error('Apollo sync error:', error);
+      document.getElementById('apolloStatus').textContent = 'Sync failed: ' + error.message;
+      document.getElementById('apolloStatus').style.color = 'var(--color-critical)';
+    }
+  }
+
   const monthData = {
     1: {
       rawLeads: { target: 20, weight: 1.0 },
