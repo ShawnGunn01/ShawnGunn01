@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth Strategy Metrics Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #1a1a1a;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .section {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+            display: inline-block;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .input-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-field label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-field input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: "Monaco", monospace;
+            background: #f9f9f9;
+        }
+
+        .input-field input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: #f9f9f9;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-family: "Monaco", monospace;
+        }
+
+        .metric-target {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-on-track {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-at-risk {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-behind {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .comparison-table th {
+            background: #f0f0f0;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .comparison-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .comparison-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .actual-value {
+            font-family: "Monaco", monospace;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e5e5e5;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.at-risk {
+            background: #f59e0b;
+        }
+
+        .progress-fill.behind {
+            background: #ef4444;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #0c4a6e;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Growth Strategy Metrics Dashboard</h1>
+            <p>Gunn International • 90-Day Execution Tracking (Manual Entry)</p>
+        </div>
+
+        <!-- METRIC ENTRY SECTION -->
+        <div class="section">
+            <h2>Enter Current Metrics</h2>
+            <div class="info-box">
+                💡 <strong>How to use:</strong> Enter your actual metrics from Apollo below. Dashboard automatically calculates status (On Track / At Risk / Behind) vs. your targets for the current month.
+            </div>
+
+            <div class="input-grid">
+                <div class="input-field">
+                    <label>Month (1, 2, or 3)</label>
+                    <input type="number" id="currentMonth" value="1" min="1" max="3">
+                </div>
+                <div class="input-field">
+                    <label>Day (1-30)</label>
+                    <input type="number" id="currentDay" value="15" min="1" max="30">
+                </div>
+                <div class="input-field">
+                    <label>Emails Sent</label>
+                    <input type="number" id="emailsSent" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>Email Open Rate (%)</label>
+                    <input type="number" id="emailOpenRate" value="0" min="0" max="100" step="0.1">
+                </div>
+                <div class="input-field">
+                    <label>Email Reply Rate (%)</label>
+                    <input type="number" id="emailReplyRate" value="0" min="0" max="100" step="0.1">
+                </div>
+                <div class="input-field">
+                    <label>Raw Leads</label>
+                    <input type="number" id="rawLeads" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>MQL</label>
+                    <input type="number" id="mql" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>SQL</label>
+                    <input type="number" id="sql" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>Calls Booked</label>
+                    <input type="number" id="callsBooked" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>LinkedIn Posts Published</label>
+                    <input type="number" id="linkedinPosts" value="0" min="0">
+                </div>
+                <div class="input-field">
+                    <label>LinkedIn Engagement Rate (%)</label>
+                    <input type="number" id="linkedinEngagement" value="0" min="0" max="100" step="0.1">
+                </div>
+                <div class="input-field">
+                    <label>Referral Leads</label>
+                    <input type="number" id="referralLeads" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="updateMetrics()">Update Dashboard</button>
+                <button onclick="resetMetrics()" style="background: #999;">Reset Inputs</button>
+            </div>
+        </div>
+
+        <!-- KEY PERFORMANCE INDICATORS -->
+        <div class="section">
+            <h2>Key Performance Indicators</h2>
+            <div class="metrics-grid" id="kpiGrid">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- DETAILED COMPARISON TABLE -->
+        <div class="section">
+            <h2>Actual vs. Target Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Target (Month)</th>
+                        <th>Actual</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="comparisonBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- MONTH TARGETS REFERENCE -->
+        <div class="section">
+            <h2>Target Reference (30/60/90 Days)</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Month 1 Target</th>
+                        <th>Month 2 Target</th>
+                        <th>Month 3 Target</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Emails Sent</strong></td>
+                        <td>100–150</td>
+                        <td>200–250/week</td>
+                        <td>250+/week</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Email Open Rate</strong></td>
+                        <td>22–28%</td>
+                        <td>25–30%</td>
+                        <td>25–30%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Email Reply Rate</strong></td>
+                        <td>4–6%</td>
+                        <td>5–8%</td>
+                        <td>5–8%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Raw Leads</strong></td>
+                        <td>15–25</td>
+                        <td>50–60</td>
+                        <td>100+</td>
+                    </tr>
+                    <tr>
+                        <td><strong>MQL</strong></td>
+                        <td>8–12</td>
+                        <td>18–24</td>
+                        <td>35–40</td>
+                    </tr>
+                    <tr>
+                        <td><strong>SQL</strong></td>
+                        <td>4–6</td>
+                        <td>9–12</td>
+                        <td>17–20</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Calls Booked</strong></td>
+                        <td>1–2</td>
+                        <td>3–5</td>
+                        <td>4–6</td>
+                    </tr>
+                    <tr>
+                        <td><strong>LinkedIn Posts</strong></td>
+                        <td>8</td>
+                        <td>12</td>
+                        <td>12</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Referral Leads</strong></td>
+                        <td>1–3</td>
+                        <td>3–5</td>
+                        <td>5+</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section" style="background: #f0f0f0; text-align: center; font-size: 12px; color: #999;">
+            <p><strong>Status Legend:</strong> 🟢 On Track (≥80% of target) | 🟡 At Risk (60-80%) | 🔴 Behind (<60%)</p>
+            <p style="margin-top: 8px;">All data stored locally in browser. Refresh browser to reset.</p>
+        </div>
+    </div>
+
+    <script>
+        const targets = {
+            1: {
+                emailsSent: 125,
+                emailOpenRate: 25,
+                emailReplyRate: 5,
+                rawLeads: 20,
+                mql: 10,
+                sql: 5,
+                callsBooked: 1.5,
+                linkedinPosts: 8,
+                linkedinEngagement: 3,
+                referralLeads: 2
+            },
+            2: {
+                emailsSent: 225,
+                emailOpenRate: 27.5,
+                emailReplyRate: 5.75,
+                rawLeads: 55,
+                mql: 21,
+                sql: 10.5,
+                callsBooked: 4,
+                linkedinPosts: 12,
+                linkedinEngagement: 4,
+                referralLeads: 4
+            },
+            3: {
+                emailsSent: 250,
+                emailOpenRate: 30,
+                emailReplyRate: 6.5,
+                rawLeads: 100,
+                mql: 35,
+                sql: 17.5,
+                callsBooked: 5,
+                linkedinPosts: 12,
+                linkedinEngagement: 4,
+                referralLeads: 5
+            }
+        };
+
+        function getStatus(actual, target) {
+            const ratio = actual / target;
+            if (ratio >= 0.8) return { status: 'on-track', label: '✓ On Track' };
+            if (ratio >= 0.6) return { status: 'at-risk', label: '⚠ At Risk' };
+            return { status: 'behind', label: '✗ Behind' };
+        }
+
+        function updateMetrics() {
+            const month = parseInt(document.getElementById('currentMonth').value) || 1;
+            const dayProgress = Math.min(parseInt(document.getElementById('currentDay').value) / 30, 1.0);
+
+            const monthTargets = targets[Math.min(Math.max(month, 1), 3)];
+
+            // Get actual values
+            const actuals = {
+                emailsSent: parseInt(document.getElementById('emailsSent').value) || 0,
+                emailOpenRate: parseFloat(document.getElementById('emailOpenRate').value) || 0,
+                emailReplyRate: parseFloat(document.getElementById('emailReplyRate').value) || 0,
+                rawLeads: parseInt(document.getElementById('rawLeads').value) || 0,
+                mql: parseInt(document.getElementById('mql').value) || 0,
+                sql: parseInt(document.getElementById('sql').value) || 0,
+                callsBooked: parseInt(document.getElementById('callsBooked').value) || 0,
+                linkedinPosts: parseInt(document.getElementById('linkedinPosts').value) || 0,
+                linkedinEngagement: parseFloat(document.getElementById('linkedinEngagement').value) || 0,
+                referralLeads: parseInt(document.getElementById('referralLeads').value) || 0
+            };
+
+            // Build KPI cards
+            const kpiGrid = document.getElementById('kpiGrid');
+            kpiGrid.innerHTML = '';
+
+            const kpis = [
+                { label: 'Emails Sent', actual: actuals.emailsSent, target: monthTargets.emailsSent, metric: 'emails' },
+                { label: 'Open Rate', actual: actuals.emailOpenRate.toFixed(1), target: monthTargets.emailOpenRate, metric: 'percent' },
+                { label: 'Reply Rate', actual: actuals.emailReplyRate.toFixed(1), target: monthTargets.emailReplyRate, metric: 'percent' },
+                { label: 'Raw Leads', actual: actuals.rawLeads, target: monthTargets.rawLeads, metric: 'count' },
+                { label: 'MQL', actual: actuals.mql, target: monthTargets.mql, metric: 'count' },
+                { label: 'SQL', actual: actuals.sql, target: monthTargets.sql, metric: 'count' },
+                { label: 'Calls Booked', actual: actuals.callsBooked, target: monthTargets.callsBooked, metric: 'count' },
+                { label: 'LinkedIn Posts', actual: actuals.linkedinPosts, target: monthTargets.linkedinPosts, metric: 'count' },
+            ];
+
+            kpis.forEach(kpi => {
+                const statusObj = getStatus(kpi.actual, kpi.target);
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+
+                const progressPercent = Math.min((kpi.actual / kpi.target) * 100, 100);
+                const progressClass = statusObj.status === 'on-track' ? '' : statusObj.status === 'at-risk' ? 'at-risk' : 'behind';
+
+                card.innerHTML = `
+                    <div class="metric-label">${kpi.label}</div>
+                    <div class="metric-value">${kpi.actual}${kpi.metric === 'percent' ? '%' : ''}</div>
+                    <div class="metric-target">Target: ${kpi.target}${kpi.metric === 'percent' ? '%' : ''}</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${progressClass}" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <div class="status-badge status-${statusObj.status}">${statusObj.label}</div>
+                `;
+                kpiGrid.appendChild(card);
+            });
+
+            // Build comparison table
+            const comparisonBody = document.getElementById('comparisonBody');
+            comparisonBody.innerHTML = '';
+
+            const rows = [
+                { name: 'Emails Sent', actual: actuals.emailsSent, target: monthTargets.emailsSent },
+                { name: 'Email Open Rate (%)', actual: actuals.emailOpenRate.toFixed(1), target: monthTargets.emailOpenRate.toFixed(1) },
+                { name: 'Email Reply Rate (%)', actual: actuals.emailReplyRate.toFixed(1), target: monthTargets.emailReplyRate.toFixed(1) },
+                { name: 'Raw Leads', actual: actuals.rawLeads, target: monthTargets.rawLeads },
+                { name: 'MQL', actual: actuals.mql, target: monthTargets.mql },
+                { name: 'SQL', actual: actuals.sql, target: monthTargets.sql },
+                { name: 'Calls Booked', actual: actuals.callsBooked, target: monthTargets.callsBooked.toFixed(1) },
+                { name: 'LinkedIn Posts', actual: actuals.linkedinPosts, target: monthTargets.linkedinPosts },
+                { name: 'Referral Leads', actual: actuals.referralLeads, target: monthTargets.referralLeads },
+            ];
+
+            rows.forEach(row => {
+                const statusObj = getStatus(parseFloat(row.actual), parseFloat(row.target));
+                const progressPercent = Math.min((parseFloat(row.actual) / parseFloat(row.target)) * 100, 100);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${row.name}</strong></td>
+                    <td>${row.target}</td>
+                    <td class="actual-value">${row.actual}</td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${statusObj.status}" style="width: ${progressPercent}%"></div>
+                        </div>
+                        ${progressPercent.toFixed(0)}%
+                    </td>
+                    <td><span class="status-badge status-${statusObj.status}">${statusObj.label}</span></td>
+                `;
+                comparisonBody.appendChild(tr);
+            });
+        }
+
+        function resetMetrics() {
+            document.getElementById('emailsSent').value = '0';
+            document.getElementById('emailOpenRate').value = '0';
+            document.getElementById('emailReplyRate').value = '0';
+            document.getElementById('rawLeads').value = '0';
+            document.getElementById('mql').value = '0';
+            document.getElementById('sql').value = '0';
+            document.getElementById('callsBooked').value = '0';
+            document.getElementById('linkedinPosts').value = '0';
+            document.getElementById('linkedinEngagement').value = '0';
+            document.getElementById('referralLeads').value = '0';
+            updateMetrics();
+        }
+
+        // Initialize on load
+        updateMetrics();
+    </script>
+</body>
+</html>
