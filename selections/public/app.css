@@ -1,0 +1,12 @@
+/* Additions for the hosted app: sign-in, share links, submissions. */
+.login{max-width:420px}
+.login input{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin:6px 0 10px}
+.share{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.share input{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--chip);font-size:13px}
+.subs td{padding:4px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.send-row{display:grid;gap:8px;margin:8px 0}
+.send-row input,.send-row textarea{padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.job .meta-arch{opacity:.6}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--gold-soft);color:var(--ink);margin-left:6px}
+.offline{background:#fff3cd;color:#5a4300;border:1px solid #f0d78a;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:13px}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .offline{background:#3a3222;color:#f1dc9a;border-color:#6b5a2a} }
