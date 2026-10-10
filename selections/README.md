@@ -64,7 +64,22 @@ Copy `.env.example` and set these in your host's environment:
 | `PUBLIC_URL` | The app's public address, used for the "open the job" link in emails. |
 | `PORT` | Defaults to 3000. |
 
-## Deploying
+## Deploying to Railway
+
+1. In Railway, **New Project → Deploy from GitHub repo**, pick `ShawnGunn01/ShawnGunn01`
+   and the branch (`claude/room-checklist-builder-0rjoas` until the PR merges).
+2. In the service **Settings → Source**, set **Root directory** to `selections`.
+   `railway.json` here supplies the start command and health check.
+3. **Variables**: add `BUILDER_PASSWORD`, `BUILDER_EMAIL`, and (for emailed
+   submissions) the `SMTP_*` values. Set `SELECTIONS_DATA_DIR=/data`.
+4. **Volume**: right-click the service → **Attach volume**, mount path `/data`.
+   Without this, jobs are lost on every deploy.
+5. **Settings → Networking → Generate domain**, then set `PUBLIC_URL` to that
+   `https://...` address and redeploy.
+
+Open the domain, click **Builder sign in**, and create the first job.
+
+## Deploying elsewhere
 
 Any Node host works (Render, Railway, Fly.io, a small VPS). Set the variables
 above, make sure `SELECTIONS_DATA_DIR` is on a persistent disk, and put it
