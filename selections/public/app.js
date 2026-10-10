@@ -135,7 +135,7 @@ async function poll() {
 }
 function startPolling() { clearInterval(pollTimer); pollTimer = setInterval(poll, 6000); }
 
-function setField(scope, k, v) { (job.data[scope] ||= {})[k] = v; persist({ data: { [scope]: { [k]: v } } }); }
+function setField(scope, k, v) { const d = (job.data[scope] ||= {}); if (v === null) delete d[k]; else d[k] = v; persist({ data: { [scope]: { [k]: v } } }); }
 function persistReps() { persist({ reps: job.reps }); }
 
 /* ---------- Helpers bound to the current job ---------- */
@@ -153,11 +153,12 @@ const resetBtn = document.getElementById('resetBtn'), builderBtn = document.getE
 
 function renderJobbar() {
   if (mode === 'builder' && !jobId) { jobbar.innerHTML = ''; return; }
-  const mt = metaOf(), st = status(), open = openItems().length;
+  const mt = metaOf(), st = status(), open = openItems().length, pr = S.pricing(job);
   const parts = JOB_FIELDS.map(([k, l]) => { const v = mt[{ 'client-name': 'client', 'project-address': 'address', 'lot-or-apn': 'lot', 'job-number': 'jobNo', 'date': 'date' }[k]]; return `<span><b>${l}</b> ${v ? esc(v) : '<i>Not entered</i>'}</span>`; }).join('');
   jobbar.innerHTML = `<div class="jb-inner"><div class="jb-fields">${parts}</div>
     <div class="jb-status"><span class="pill ${st.signed ? 'ok' : ''}">${esc(st.signed ? 'Signed v' + st.last.v : (st.last ? 'Unsigned changes' : 'Draft'))}</span>
     <button type="button" class="pill open" data-go="review">${open} open item${open === 1 ? '' : 's'}</button>
+    ${pr.n ? `<button type="button" class="pill ${pr.diff > 0 ? 'over' : ''}" data-go="pricing" title="${pr.n} priced item${pr.n === 1 ? '' : 's'}">${esc(S.diffText(pr.diff))}</button>` : ''}
     ${mode === 'builder' ? `<button type="button" class="pill" data-go="jobs">All jobs</button>` : ''}</div></div>`;
 }
 function renderNav() {
@@ -186,7 +187,32 @@ function fieldHTML(f, sec, d) {
       return h;
     }).join('') + `</div>`;
   }
-  return `<div class="row" data-row="${k}"><div class="lbl">${esc(f.label)}${hint}</div><div>${body}</div></div>`;
+  const pbtn = mode === 'builder' ? `<button type="button" class="pbtn" data-price="${k}" title="Allowance and cost" aria-label="Allowance and cost for ${esc(f.label)}">$</button>` : '';
+  return `<div class="row" data-row="${k}"><div class="lbl">${esc(f.label)}${pbtn}${hint}</div><div>${body}${priceHTML(k, d)}</div></div>`;
+}
+// Allowance and cost for one selection. The builder edits them; the client sees them.
+function priceHTML(k, d) {
+  const a = S.num(d[k + '#allow']), c = S.num(d[k + '#cost']), has = a !== null || c !== null;
+  const diff = (c || 0) - (a || 0), dt = a !== null && c !== null ? S.diffText(diff) : '';
+  if (mode !== 'builder') {
+    if (!has) return '';
+    return `<div class="price ro">${a !== null ? 'Allowance ' + esc(S.fmtMoney(a)) : ''}${a !== null && c !== null ? ' · ' : ''}${c !== null ? 'Cost ' + esc(S.fmtMoney(c)) : ''}${dt ? ` <b class="diff ${diff > 0 ? 'over' : ''}">${esc(dt)}</b>` : ''}</div>`;
+  }
+  return `<div class="price"${has ? '' : ' hidden'}><label>Allowance $<input type="number" min="0" step="any" inputmode="decimal" data-f="${k}#allow" value="${a ?? ''}" aria-label="Allowance"></label>
+    <label>Cost $<input type="number" min="0" step="any" inputmode="decimal" data-f="${k}#cost" value="${c ?? ''}" aria-label="Cost"></label><b class="diff ${diff > 0 ? 'over' : ''}">${esc(dt)}</b></div>`;
+}
+function updatePriceRow(inp) {
+  const box = inp.closest('.price'), d = bag(main.dataset.scope), k = inp.dataset.f.replace(/#(allow|cost)$/, '');
+  const a = S.num(d[k + '#allow']), c = S.num(d[k + '#cost']), diff = (c || 0) - (a || 0), b = box.querySelector('.diff');
+  b.textContent = a !== null && c !== null ? S.diffText(diff) : ''; b.classList.toggle('over', diff > 0);
+}
+function pricingHTML(pr) {
+  if (!pr.n) return mode === 'builder' ? `<div class="notice">No allowances or costs yet. Use the <b>$</b> button next to any item to add an allowance and the cost of what was chosen.</div>` : '';
+  const money = (v) => (v === null ? '<i>not set</i>' : esc(S.fmtMoney(v)));
+  return `<fieldset class="pricing" id="pricingBox"><legend>Pricing</legend><p class="hint">Allowance versus the cost of each priced selection.</p><table>
+    <thead><tr><th>Item</th><th>Allowance</th><th>Cost</th><th>Over / under</th></tr></thead><tbody>` +
+    pr.items.map((i) => `<tr><td><button type="button" data-jump="${esc(i.room)}|${esc(i.inst || '')}|${esc(i.key)}"><b>${esc(i.title)}</b> › ${esc(i.section)} › ${esc(i.label)}${i.value ? `<br><small>${esc(i.value)}</small>` : ''}</button></td><td>${money(i.allow)}</td><td>${money(i.cost)}</td><td class="${i.diff > 0 ? 'over' : ''}">${esc(S.diffText(i.diff))}</td></tr>`).join('') +
+    `<tr class="tot"><td>Total</td><td>${esc(S.fmtMoney(pr.allow))}</td><td>${esc(S.fmtMoney(pr.cost))}</td><td class="${pr.diff > 0 ? 'over' : ''}">${esc(S.diffText(pr.diff))}</td></tr></tbody></table></fieldset>`;
 }
 const shareURL = (t) => location.origin + '/s/' + t;
 function jobsHTML() {
@@ -214,7 +240,8 @@ function shareHTML() {
   return `<fieldset><legend>Client link</legend>
     <p class="hint">Send this link to the client. Anyone with it can fill in this job from their own phone or computer, and every change saves here. Make a new link to cut off the old one.</p>
     <div class="share"><input readonly value="${esc(shareURL(jobToken))}" id="shareUrl" aria-label="Client link"><button type="button" class="btn gold-b" id="copyLink">Copy link</button><button type="button" class="link" id="newLink">Make a new link</button></div>
-    <div class="job-actions"><a class="btn" href="/api/jobs/${esc(jobId)}/summary" target="_blank" rel="noopener" id="summaryLink">Open summary</a>
+    <div class="job-actions"><button type="button" class="btn" id="summaryBtn">Open summary</button>
+      <button type="button" class="btn" id="pdfBtn">Download PDF</button>
       <button type="button" class="btn" id="archiveBtn">${jobArchived ? 'Unarchive job' : 'Archive job'}</button></div>
     ${subs ? `<p class="hint"><b>Sent to builder</b></p><table class="subs">${subs}</table>` : '<p class="hint">The client has not sent this job yet.</p>'}
     <p class="msg" id="shareMsg"></p></fieldset>`;
@@ -244,13 +271,15 @@ function sendHTML() {
       ${last ? `<p class="status-line ok">Last sent ${esc(fmtDate(last.at))}${last.name ? ' by ' + esc(last.name) : ''}.</p>` : ''}
       <div class="send-row"><input id="sendName" placeholder="Your name" autocomplete="name"><textarea id="sendNote" rows="2" placeholder="Anything the team should know (optional)"></textarea></div>
       <div class="job-actions"><button type="button" class="btn gold-b" id="submitBtn">Send selections to Raw Development</button>
-      <button type="button" class="btn" data-print>Print or save as PDF</button></div><p class="msg" id="sendMsg"></p></fieldset>`;
+      <button type="button" class="btn" id="pdfBtn">Download PDF</button>
+      <button type="button" class="btn" data-print>Print</button></div><p class="msg" id="sendMsg"></p></fieldset>`;
   }
   return `<fieldset id="sendBox"><legend>${mode === 'builder' ? 'Share and print' : 'Send to builder'}</legend>
-    <p class="hint">${mode === 'builder' ? 'Email the summary to anyone, download it, or print it.' : 'Emails the job details, open items and every selection to Raw Development. For long checklists, also download the summary file and attach it.'}</p>
+    <p class="hint">${mode === 'builder' ? 'Email the summary to anyone, download it as a PDF, or print it.' : 'Emails the job details, open items and every selection to Raw Development. For long checklists, also download the summary file and attach it.'}</p>
     <div class="job-actions"><a class="btn gold-b" id="mailBtn" href="#" target="_blank" rel="noopener">Email selections${mode === 'builder' ? '' : ' to builder'}</a>
+    ${mode === 'builder' ? '<button type="button" class="btn" id="pdfBtn">Download PDF</button>' : ''}
     <button type="button" class="btn" id="dlBtn">Download summary file</button>
-    <button type="button" class="btn" data-print>Print or save as PDF</button></div><p class="msg" id="sendMsg"></p></fieldset>`;
+    <button type="button" class="btn" data-print>${mode === 'builder' ? 'Print' : 'Print or save as PDF'}</button></div><p class="msg" id="sendMsg"></p></fieldset>`;
 }
 function loginHTML(msg) {
   return `<div class="room-head"><h2>Builder sign in</h2></div><fieldset class="login"><legend>Raw Development team</legend>
@@ -292,7 +321,7 @@ function renderRoom() {
   const d = bag(scope);
   if (room.id === 'review') {
     html += `<div class="notice">Selections may affect cabinet openings, plumbing, electrical locations, venting, and installation. Please provide product specification sheets before rough work and cabinet fabrication are finalized. Items left "To select" after the room deadline default to Raw Development standard, and changes after sign-off are priced as change orders.</div>`;
-    html += openItemsHTML(openItems());
+    html += pricingHTML(S.pricing(job)) + openItemsHTML(openItems());
   }
   room.sections.forEach((sec) => {
     html += `<fieldset><legend>${esc(sec.title)}</legend>` + sec.fields.map((f) => fieldHTML(f, sec, d)).join('');
@@ -326,6 +355,7 @@ nav.addEventListener('click', (e) => { const b = e.target.closest('[data-room]')
 jobbar.addEventListener('click', (e) => {
   const b = e.target.closest('[data-go]'); if (!b) return;
   if (b.dataset.go === 'jobs') { ui.room = 'project'; saveUI(); render(); setTimeout(() => { const j = main.querySelector('.jobs'); if (j) j.scrollIntoView({ block: 'start' }); }, 0); }
+  else if (b.dataset.go === 'pricing') { goRoom('review'); const p = document.getElementById('pricingBox'); if (p) p.scrollIntoView({ block: 'start' }); }
   else goRoom('review');
 });
 
@@ -345,6 +375,13 @@ main.addEventListener('click', async (e) => {
   if (t.dataset.room) return goRoom(t.dataset.room);
   if (t.hasAttribute('data-print')) return doPrint();
   if (t.id === 'dlBtn') return doDownload();
+  if (t.id === 'pdfBtn') return doPdf(t);
+  if (t.id === 'summaryBtn') return openSummary();
+  if (t.dataset.price !== undefined) {
+    const box = t.closest('.row').querySelector('.price'); box.hidden = !box.hidden;
+    if (!box.hidden) box.querySelector('input').focus();
+    return;
+  }
   if (t.id === 'signBtn') return doSign();
   if (t.id === 'submitBtn') return doSubmit(t);
   if (t.id === 'loginBtn') return doLogin();
@@ -436,6 +473,11 @@ main.addEventListener('input', (e) => {
     persistReps(); return;
   }
   if (t.dataset.f) {
+    if (t.type === 'number') {
+      const v = t.value === '' ? null : Number(t.value);
+      if (v !== null && !Number.isFinite(v)) return;
+      setField(main.dataset.scope, t.dataset.f, v); updatePriceRow(t); renderJobbar(); return;
+    }
     setField(main.dataset.scope, t.dataset.f, t.value);
     if (t.tagName === 'TEXTAREA') autosize(t);
     renderNav(); updateHead();
@@ -488,13 +530,37 @@ function mailtoHref() {
   return `mailto:${mode === 'builder' ? '' : config.builderEmail}?subject=${encodeURIComponent(S.subjectLine(job))}&body=${encodeURIComponent(body)}`;
 }
 function doPrint() { document.getElementById('print').innerHTML = S.summaryHTML(job, { builderEmail: config.builderEmail }); window.print(); }
-function doDownload() {
+function fileName(ext) {
   const mt = metaOf(), st = status();
-  const name = `Selections - ${[mt.client, mt.address].filter(Boolean).join(' - ') || 'New build'} - ${st.signed ? 'v' + st.last.v : 'draft'}.html`.replace(/[\\/:*?"<>|]/g, '');
-  const blob = new Blob([S.summaryDoc(job, { builderEmail: config.builderEmail })], { type: 'text/html' });
+  return `Selections - ${[mt.client, mt.address].filter(Boolean).join(' - ') || 'New build'} - ${st.signed ? 'v' + st.last.v : 'draft'}.${ext}`.replace(/[\\/:*?"<>|]/g, '');
+}
+function saveBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function doDownload() {
+  saveBlob(new Blob([S.summaryDoc(job, { builderEmail: config.builderEmail })], { type: 'text/html' }), fileName('html'));
   msgEl('sendMsg', 'Summary file downloaded.');
+}
+// The summary page is built in the browser from the same job the server has, so it opens without a request.
+function openSummary() {
+  const blob = new Blob([S.summaryDoc(job, { builderEmail: config.builderEmail })], { type: 'text/html' });
+  const u = URL.createObjectURL(blob); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
+// The PDF is rendered by the server from the saved job: builder by job id, client by share link.
+async function doPdf(btn) {
+  const path = (mode === 'client' ? '/api/share/' + encodeURIComponent(shareToken) : '/api/jobs/' + encodeURIComponent(jobId)) + '/summary.pdf';
+  const msg = btn.closest('fieldset') && btn.closest('fieldset').querySelector('.msg');
+  const say = (t) => { if (msg) msg.textContent = t; };
+  btn.disabled = true; say('Making the PDF…');
+  try {
+    if (pending) { clearTimeout(flushTimer); flushTimer = null; await flush(); }
+    const headers = {}; if (session) headers.authorization = 'Bearer ' + session;
+    const res = await fetch(path, { headers });
+    if (!res.ok) { let b = null; try { b = await res.json(); } catch (e) {} throw new Error((b && b.error) || 'Could not make the PDF (' + res.status + ')'); }
+    saveBlob(await res.blob(), fileName('pdf')); say('PDF downloaded.');
+  } catch (e) { say(e.message); }
+  btn.disabled = false;
 }
 
 /* ---------- Builder: sign in and jobs ---------- */

@@ -31,6 +31,8 @@ test('deliver uses SMTP and the webhook when configured, and reports what worked
   assert.deepEqual(r.delivered, ['email', 'webhook']);
   assert.equal(sent[0].from, 'no-reply@example.com');
   assert.equal(sent[0].attachments[0].filename, 'selections.html');
+  assert.equal(sent[0].attachments[1].filename, 'selections.pdf');
+  assert.equal(sent[0].attachments[1].content.subarray(0, 5).toString(), '%PDF-');
   assert.equal(posted[0].body.jobId, 'abc123');
   assert.equal(posted[0].body.openItems.length, 1);
 });

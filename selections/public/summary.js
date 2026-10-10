@@ -70,6 +70,25 @@
     if (f.text) return String(d[k] || '').trim();
     const v = d[k] || []; return v.map((o) => (o.startsWith('Other') && d[k + '#o'] ? `${o}: ${d[k + '#o']}` : o)).join(', ');
   }
+  // Allowance and cost per selection. They live next to the selection in the same
+  // scope as "<key>#allow" and "<key>#cost", so patches, merging and the sign-off
+  // hash treat a price change like any other change to the sheet.
+  const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+  const fmtMoney = (n) => (n < 0 ? '-' : '') + '$' + Math.abs(Number(n)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const diffText = (diff) => (diff > 0 ? 'Over ' + fmtMoney(diff) : diff < 0 ? 'Under ' + fmtMoney(-diff) : 'On allowance');
+  function pricing(job) {
+    const items = []; let allow = 0, cost = 0;
+    eachScope(job, (room, scope, title, inst) => {
+      const d = job.data[scope] || {};
+      room.sections.forEach((s) => s.fields.forEach((f) => {
+        const k = s.key + '/' + f.key, a = num(d[k + '#allow']), c = num(d[k + '#cost']);
+        if (a === null && c === null) return;
+        items.push({ room: room.id, inst, title, section: s.title, label: f.label, key: k, value: valueText(f, d, k), allow: a, cost: c, diff: (c || 0) - (a || 0) });
+        allow += a || 0; cost += c || 0;
+      }));
+    });
+    return { items, allow, cost, diff: cost - allow, n: items.length };
+  }
   function jobLines(job) { const m = metaOf(job); return [['Client', m.client], ['Property address', m.address], ['Lot / APN', m.lot], ['Job #', m.jobNo], ['Date', m.date]]; }
   function subjectLine(job) {
     const m = metaOf(job), st = status(job);
@@ -82,6 +101,12 @@
     s += `Status: ${st.text}\n${FORM_REV}\n\nOPEN ITEMS (${open.length})\n`;
     s += open.length ? open.map((o) => `- ${o.title} > ${o.section} > ${o.label}: ${o.value}`).join('\n') : '- None';
     s += `\n\n${unanswered(job)} items not answered yet.\n`;
+    const pr = pricing(job);
+    if (pr.n) {
+      s += `\nPRICING (${pr.n} priced item${pr.n === 1 ? '' : 's'})\n`;
+      s += pr.items.map((i) => `- ${i.title} > ${i.section} > ${i.label}: allowance ${i.allow === null ? 'not set' : fmtMoney(i.allow)}, cost ${i.cost === null ? 'not set' : fmtMoney(i.cost)}, ${diffText(i.diff).toLowerCase()}`).join('\n');
+      s += `\nTotal allowance ${fmtMoney(pr.allow)}, total cost ${fmtMoney(pr.cost)}: ${diffText(pr.diff).toLowerCase()}.\n`;
+    }
     if (full) {
       s += '\nSELECTIONS\n';
       eachScope(job, (room, scope, title) => {
@@ -102,6 +127,13 @@
       jobLines(job).map(([l, v]) => `<tr><td>${l}</td><td>${v ? esc(v) : blank}</td></tr>`).join('') +
       `<tr><td>Selections status</td><td>${esc(st.text)}</td></tr><tr><td>Form</td><td>${FORM_REV}</td></tr></table>`;
     h += `<h2>Open items (${open.length})</h2>` + (open.length ? `<table>` + open.map((o) => `<tr><td>${esc(o.title)} › ${esc(o.section)} › ${esc(o.label)}</td><td>${esc(o.value)}</td></tr>`).join('') + `</table>` : '<p>None. Every item has a selection or is not applicable.</p>');
+    const pr = pricing(job);
+    if (pr.n) {
+      const money = (v) => (v === null ? '<span class="blank">not set</span>' : esc(fmtMoney(v)));
+      h += `<h2>Pricing</h2><table class="pricing"><tr><th>Item</th><th>Allowance</th><th>Cost</th><th>Over / under</th></tr>` +
+        pr.items.map((i) => `<tr><td>${esc(i.title)} › ${esc(i.section)} › ${esc(i.label)}${i.value ? `<br><small>${esc(i.value)}</small>` : ''}</td><td>${money(i.allow)}</td><td>${money(i.cost)}</td><td class="${i.diff > 0 ? 'over' : ''}">${esc(diffText(i.diff))}</td></tr>`).join('') +
+        `<tr class="tot"><td>Total</td><td>${esc(fmtMoney(pr.allow))}</td><td>${esc(fmtMoney(pr.cost))}</td><td class="${pr.diff > 0 ? 'over' : ''}">${esc(diffText(pr.diff))}</td></tr></table>`;
+    }
     eachScope(job, (room, scope, title) => {
       const d = job.data[scope] || {};
       h += `<h2>${esc(title)}</h2>` + room.sections.map((sec) => `<h3>${esc(sec.title)}</h3><table>` + sec.fields.map((f) => {
@@ -118,9 +150,9 @@
     <p>Raw Development Design | Room Selections${opts.builderEmail ? ' | ' + esc(opts.builderEmail) : ''}</p>`;
     return h;
   }
-  const DOC_CSS = 'body{font:13px/1.45 system-ui,sans-serif;color:#18202e;max-width:900px;margin:24px auto;padding:0 16px}h1{color:#16233f;font-size:22px}h2{color:#16233f;border-bottom:2px solid #b8923a;padding-bottom:3px;margin-top:22px}h3{font-size:13px;margin:10px 0 2px}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:4px 6px;vertical-align:top}td:first-child{width:40%;font-weight:600}.blank{color:#999}';
+  const DOC_CSS = 'body{font:13px/1.45 system-ui,sans-serif;color:#18202e;max-width:900px;margin:24px auto;padding:0 16px}h1{color:#16233f;font-size:22px}h2{color:#16233f;border-bottom:2px solid #b8923a;padding-bottom:3px;margin-top:22px}h3{font-size:13px;margin:10px 0 2px}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:4px 6px;vertical-align:top}td:first-child{width:40%;font-weight:600}.blank{color:#999}th{text-align:left;font-size:12px;color:#5d6678;border-bottom:2px solid #ddd;padding:4px 6px}.pricing td:first-child{font-weight:500}.pricing td:not(:first-child){text-align:right;white-space:nowrap}.pricing small{color:#5d6678}.pricing .tot td{font-weight:700}.pricing .over{color:#b4423a}';
   function summaryDoc(job, opts) {
     return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(subjectLine(job))}</title><style>${DOC_CSS}</style></head><body>${summaryHTML(job, opts)}</body></html>`;
   }
-  return { esc, scopeOf, filled, fmtDate, metaOf, countScope, countRoom, eachScope, openItems, unanswered, hashJob, status, valueText, jobLines, subjectLine, summaryText, summaryHTML, summaryDoc };
+  return { esc, scopeOf, filled, fmtDate, metaOf, countScope, countRoom, eachScope, openItems, unanswered, hashJob, status, valueText, num, fmtMoney, diffText, pricing, jobLines, subjectLine, summaryText, summaryHTML, summaryDoc };
 });

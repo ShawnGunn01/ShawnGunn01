@@ -5,6 +5,7 @@ const express = require('express');
 const store = require('./lib/store');
 const mail = require('./lib/mail');
 const SUMMARY = require('./public/summary');
+const PDF = require('./lib/pdf');
 
 const app = express();
 app.disable('x-powered-by');
@@ -88,6 +89,20 @@ app.get('/api/jobs/:id/summary', builderOnly, (req, res) => {
   if (!job) return res.status(404).json({ error: 'No such job.' });
   res.type('html').send(SUMMARY.summaryDoc(job, { builderEmail: mail.config().builderEmail }));
 });
+// The summary as a PDF, for the builder (by job id) and the client (by share link).
+async function sendPDF(res, job) {
+  const buf = await PDF.summaryPDF(job, { builderEmail: mail.config().builderEmail });
+  const m = SUMMARY.metaOf(job), st = SUMMARY.status(job);
+  const name = `Selections - ${[m.client, m.address].filter(Boolean).join(' - ') || 'New build'} - ${st.signed ? 'v' + st.last.v : 'draft'}.pdf`.replace(/[^\x20-\x7e]/g, '').replace(/[\\/:*?"<>|]/g, '');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  res.send(buf);
+}
+app.get('/api/jobs/:id/summary.pdf', builderOnly, async (req, res, next) => {
+  const job = store.getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: 'No such job.' });
+  try { await sendPDF(res, job); } catch (e) { next(e); }
+});
 
 /* ---- Client access by share link ---- */
 function byToken(req, res, next) {
@@ -99,6 +114,9 @@ function byToken(req, res, next) {
 app.get('/api/share/:token', byToken, (req, res) => {
   if (req.query.since && Number(req.query.since) === req.job.rev) return res.status(304).end();
   res.json({ job: clientJob(req.job) });
+});
+app.get('/api/share/:token/summary.pdf', byToken, async (req, res, next) => {
+  try { await sendPDF(res, req.job); } catch (e) { next(e); }
 });
 app.patch('/api/share/:token', byToken, (req, res) => {
   const job = store.patchJob(req.job.id, req.body && req.body.patch);
