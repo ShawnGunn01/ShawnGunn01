@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raw Development Design | New Build Selections Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <h1 class="brand">Raw Development Design<small>New Build Selections Checklist, room by room</small></h1>
+    <div class="top-actions">
+      <span class="save-state" id="saveState">Loading…</span>
+      <button class="btn" id="resetBtn" type="button" hidden>Clear all</button>
+      <button class="btn" id="builderBtn" type="button">Builder sign in</button>
+      <button class="btn" id="sendTop" type="button">Send to builder</button>
+      <button class="btn gold" id="printBtn" type="button">Print selections</button>
+    </div>
+  </div>
+</header>
+<div class="jobbar" id="jobbar"></div>
+<div class="wrap">
+  <nav class="rooms" id="nav" aria-label="Rooms"></nav>
+  <main id="main"></main>
+</div>
+<div id="print"></div>
+<script src="/checklist.js"></script>
+<script src="/summary.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

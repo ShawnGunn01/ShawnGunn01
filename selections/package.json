@@ -1,0 +1,15 @@
+{
+  "name": "rawdev-selections",
+  "version": "1.0.0",
+  "description": "Raw Development Design new build selections checklist: client-facing checklist with saved job records, share links, and send-to-builder.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.14"
+  }
+}
