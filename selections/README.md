@@ -17,7 +17,10 @@ print and email), now hosted by you.
   cuts off the old one.
 - See every submission ("Send to builder") with the date, who sent it, how many
   items were still open, and the signed version.
-- Open or print the summary, archive a job, delete a job.
+- Set an allowance and the cost of what was chosen on any item (the `$` button
+  next to it). The review page and every summary show each priced item, the
+  totals, and how far over or under allowance the job is.
+- Open the summary, download it as a PDF, print it, archive a job, delete a job.
 - Start a job from a checklist that was filled in on your device offline.
 
 **For the client**
@@ -25,9 +28,11 @@ print and email), now hosted by you.
 - Opens the link on any device. No account or password.
 - Every tap saves to the job record as they go. Two people can fill it in from
   two phones; the page refreshes itself every few seconds while nobody is typing.
+- Sees the allowance, cost and over/under on any item the builder has priced.
+- Downloads the same PDF the builder gets.
 - "Send to builder" records the submission on the job and, when email is set
   up, emails the full summary to the builder address with the summary attached
-  as an HTML file.
+  as an HTML file and as a PDF.
 - Sign-off with their name records a version; any later change marks the job
   "Unsigned changes" until they sign again.
 
@@ -67,7 +72,7 @@ Copy `.env.example` and set these in your host's environment:
 ## Deploying to Railway
 
 1. In Railway, **New Project → Deploy from GitHub repo**, pick `ShawnGunn01/ShawnGunn01`
-   and the branch (`claude/room-checklist-builder-0rjoas` until the PR merges).
+   and the repository's default branch.
 2. In the service **Settings → Source**, set **Root directory** to `selections`.
    `railway.json` here supplies the start command and health check.
 3. **Variables**: add `BUILDER_PASSWORD`, `BUILDER_EMAIL`, and (for emailed
@@ -96,6 +101,10 @@ job has:
 - `submissions`: every "Send to builder"
 - `token`: the client link secret
 
+Allowances and costs sit next to the selection they price, as `<field>#allow`
+and `<field>#cost`, so they merge, hash and sign like any other answer: a price
+change after sign-off puts the job back to "Unsigned changes".
+
 Patches from the browser merge field by field, so two people editing the same
 job don't overwrite each other.
 
@@ -104,6 +113,7 @@ job don't overwrite each other.
 - `server.js`: Express API and static hosting
 - `lib/store.js`: job records, builder sessions, patch merging
 - `lib/mail.js`: submission delivery by email and webhook
+- `lib/pdf.js`: the summary as a PDF (pdfkit, no browser needed)
 - `public/checklist.js`: the checklist content (every room and item)
 - `public/summary.js`: open items, sign-off status, summary text and HTML, shared by browser and server
 - `public/app.js`: the browser app

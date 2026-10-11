@@ -26,12 +26,13 @@ function buildMessage(job, sub, cfg) {
   };
 }
 
-async function sendEmail(msg, cfg, transportFactory) {
+async function sendEmail(msg, cfg, transportFactory, pdf) {
   if (!cfg.smtp) return false;
   const nodemailer = require('nodemailer');
   const transport = transportFactory ? transportFactory(cfg.smtp) : nodemailer.createTransport(cfg.smtp);
-  await transport.sendMail({ from: cfg.smtp.from, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html,
-    attachments: [{ filename: msg.attachment.filename, content: msg.attachment.content, contentType: 'text/html' }] });
+  const attachments = [{ filename: msg.attachment.filename, content: msg.attachment.content, contentType: 'text/html' }];
+  if (pdf) attachments.push({ filename: 'selections.pdf', content: pdf, contentType: 'application/pdf' });
+  await transport.sendMail({ from: cfg.smtp.from, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, attachments });
   return true;
 }
 
@@ -47,7 +48,9 @@ async function deliver(job, sub, opts = {}) {
   const cfg = opts.config || config();
   const msg = buildMessage(job, sub, cfg);
   const delivered = [], errors = [];
-  try { if (await sendEmail(msg, cfg, opts.transportFactory)) delivered.push('email'); } catch (e) { errors.push('email: ' + e.message); }
+  let pdf = null;
+  if (cfg.smtp) { try { pdf = await require('./pdf').summaryPDF(job, { builderEmail: cfg.builderEmail }); } catch (e) { errors.push('pdf: ' + e.message); } }
+  try { if (await sendEmail(msg, cfg, opts.transportFactory, pdf)) delivered.push('email'); } catch (e) { errors.push('email: ' + e.message); }
   try { if (await postWebhook(job, sub, msg, cfg, opts.fetch)) delivered.push('webhook'); } catch (e) { errors.push('webhook: ' + e.message); }
   (opts.log || console.log)(`[submission] job ${job.id} from ${sub.name || 'client'} -> ${delivered.join(', ') || 'saved only'}${errors.length ? ' | ' + errors.join('; ') : ''}`);
   return { delivered, errors, subject: msg.subject };

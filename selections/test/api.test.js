@@ -123,3 +123,25 @@ test('share page and summary are served', async () => {
   assert.equal(sum.status, 200);
   assert.match(await sum.text(), /Open items/);
 });
+
+test('the summary PDF is served to the builder by job id and to the client by share link', async () => {
+  const t = await login();
+  const job = (await call('POST', '/api/jobs', {}, t)).body.job;
+  await call('PATCH', '/api/jobs/' + job.id, { patch: { data: { project: { 'job-details/client-name': 'Ana Cruz' },
+    kitchen: { 'cabinets-and-hardware/door-style': ['Shaker'], 'cabinets-and-hardware/door-style#allow': 4000, 'cabinets-and-hardware/door-style#cost': 4600 } } } }, t);
+  for (const [p, headers] of [['/api/jobs/' + job.id + '/summary.pdf', { authorization: 'Bearer ' + t }], ['/api/share/' + job.token + '/summary.pdf', {}]]) {
+    const res = await fetch(base + p, { headers });
+    assert.equal(res.status, 200, p);
+    assert.equal(res.headers.get('content-type'), 'application/pdf');
+    assert.match(res.headers.get('content-disposition'), /Selections - Ana Cruz - draft\.pdf/);
+    const buf = Buffer.from(await res.arrayBuffer());
+    assert.equal(buf.subarray(0, 5).toString(), '%PDF-');
+    assert.ok(buf.length > 5000, 'PDF has content');
+  }
+  assert.equal((await fetch(base + '/api/jobs/' + job.id + '/summary.pdf')).status, 401);
+  assert.equal((await fetch(base + '/api/share/nope/summary.pdf')).status, 404);
+  const back = (await call('GET', '/api/jobs/' + job.id, null, t)).body.job;
+  assert.equal(back.data.kitchen['cabinets-and-hardware/door-style#cost'], 4600, 'prices persist with the selection');
+  const r = await call('PATCH', '/api/jobs/' + job.id, { patch: { data: { kitchen: { 'cabinets-and-hardware/door-style#cost': null } } } }, t);
+  assert.equal(r.body.job.data.kitchen['cabinets-and-hardware/door-style#cost'], undefined, 'null clears a price');
+});

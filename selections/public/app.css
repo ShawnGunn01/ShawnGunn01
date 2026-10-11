@@ -10,3 +10,23 @@
 .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--gold-soft);color:var(--ink);margin-left:6px}
 .offline{background:#fff3cd;color:#5a4300;border:1px solid #f0d78a;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:13px}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .offline{background:#3a3222;color:#f1dc9a;border-color:#6b5a2a} }
+
+/* Allowance and cost per selection (builder edits, client sees). */
+.pbtn{margin-left:8px;border:1px solid var(--line);background:var(--chip);border-radius:4px;padding:0 6px;font-size:12px;line-height:20px;cursor:pointer;color:var(--muted);vertical-align:1px}
+.pbtn:hover{border-color:var(--gold);color:var(--ink)}
+.price{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted)}
+.price[hidden]{display:none}
+.price label{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.price input{width:110px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-size:13px;font-variant-numeric:tabular-nums}
+.price .diff{font-weight:700;color:var(--ink)}
+.price .diff.over,.pill.over,.pricing .over{color:#b4423a}
+.pill.over{border-color:#b4423a}
+.pricing table{width:100%;border-collapse:collapse;font-size:13px}
+.pricing th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:4px 8px;border-bottom:1px solid var(--line)}
+.pricing td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-variant-numeric:tabular-nums}
+.pricing td:not(:first-child){text-align:right;white-space:nowrap}
+.pricing th:not(:first-child){text-align:right}
+.pricing small{color:var(--muted)}
+.pricing tr.tot td{font-weight:700;border-bottom:0}
+.pricing td button{border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0}
+.pricing td button:hover b{color:var(--gold)}
